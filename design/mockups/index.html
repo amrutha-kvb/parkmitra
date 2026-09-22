@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>parkmitra — mockups, every screen × every state</title>
+<style>
+/* ── tokens: the single source. Copied verbatim from design/design-system.md.
+      Nothing below this block may introduce a value that is not a token. ── */
+:root{
+  --ink-900:#14181F; --ink-700:#3D4653; --ink-500:#6B7685;
+  --ink-200:#D9DEE5; --ink-100:#EDF0F4; --paper:#FFFFFF;
+  --accent-700:#0B5A55; --accent-600:#0E6F68; --accent-100:#E3F2F0;
+  --ok-700:#1B6B3A; --ok-100:#E6F4EB;
+  --warn-700:#8A5A00; --warn-100:#FDF3E0;
+  --stop-700:#A02020; --stop-100:#FBE9E9;
+  --font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --text-xs:.75rem; --text-sm:.875rem; --text-base:1rem;
+  --text-lg:1.125rem; --text-xl:1.5rem; --text-2xl:2rem;
+  --leading-tight:1.25; --leading-body:1.55;
+  --space-1:.25rem; --space-2:.5rem; --space-3:.75rem;
+  --space-4:1rem; --space-6:1.5rem; --space-8:2rem; --space-12:3rem;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:16px;
+  --border:1px solid var(--ink-200);
+  --shadow-sm:0 1px 2px rgba(20,24,31,.06);
+  --shadow-md:0 4px 12px rgba(20,24,31,.08);
+  --tap-min:44px;
+  --focus-ring:0 0 0 3px var(--accent-100),0 0 0 1px var(--accent-600);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink-100);color:var(--ink-900);
+     font-family:var(--font);line-height:var(--leading-body)}
+.gallery{max-width:1400px;margin:0 auto;padding:var(--space-8) var(--space-4)}
+h1{font-size:var(--text-2xl);margin:0 0 var(--space-2)}
+.sub{color:var(--ink-700);margin:0 0 var(--space-8);max-width:60ch}
+h2{font-size:var(--text-xl);margin:var(--space-12) 0 var(--space-2);
+   padding-bottom:var(--space-2);border-bottom:2px solid var(--ink-200)}
+.note{color:var(--ink-700);font-size:var(--text-sm);margin:0 0 var(--space-4);max-width:70ch}
+.row{display:flex;gap:var(--space-6);flex-wrap:wrap}
+.cell{flex:0 0 auto}
+.state-label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;
+             color:var(--ink-500);font-weight:700;margin-bottom:var(--space-2)}
+/* phone frame — presentation only, never ships */
+.phone{width:390px;min-height:660px;background:var(--paper);border-radius:var(--radius-lg);
+       box-shadow:var(--shadow-md);overflow:hidden;display:flex;flex-direction:column}
+.screen{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);flex:1}
+
+/* ── components ── */
+.brand{font-weight:700;font-size:var(--text-lg)}
+.tagline{color:var(--ink-700);font-size:var(--text-sm);margin-top:calc(var(--space-1)*-1)}
+.crumb{display:flex;align-items:center;gap:var(--space-2);
+       color:var(--ink-700);font-size:var(--text-sm)}
+.label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;
+       color:var(--ink-500);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.chip{min-height:var(--tap-min);display:inline-flex;align-items:center;padding:0 var(--space-3);
+      border:var(--border);border-radius:var(--radius-sm);background:var(--paper);
+      font-size:var(--text-sm);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent-100);border-color:var(--accent-600);
+      color:var(--accent-700);font-weight:500}
+.field{display:flex;flex-direction:column;gap:var(--space-1)}
+.input{min-height:var(--tap-min);border:var(--border);border-radius:var(--radius-sm);
+       padding:0 var(--space-3);font-size:var(--text-base);font-family:inherit;
+       display:flex;align-items:center;color:var(--ink-500);background:var(--paper)}
+.input.filled{color:var(--ink-900)}
+.input.bad{border-color:var(--stop-700);box-shadow:0 0 0 3px var(--stop-100)}
+.err{color:var(--stop-700);font-size:var(--text-sm);display:flex;gap:var(--space-1)}
+.btn{min-height:var(--tap-min);border-radius:var(--radius-md);border:none;
+     background:var(--accent-600);color:var(--paper);font-size:var(--text-base);
+     font-weight:500;font-family:inherit;cursor:pointer;width:100%}
+.btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
+.btn[disabled]{background:var(--ink-200);color:var(--ink-500);cursor:not-allowed}
+.btn-ghost{background:var(--paper);border:var(--border);color:var(--ink-900)}
+.card{border:var(--border);border-radius:var(--radius-md);padding:var(--space-3);
+      background:var(--paper);box-shadow:var(--shadow-sm);
+      display:flex;flex-direction:column;gap:var(--space-2)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}
+.spot-name{font-size:var(--text-lg);font-weight:500}
+.meta{color:var(--ink-700);font-size:var(--text-sm)}
+.price{font-size:var(--text-lg);font-weight:700;white-space:nowrap;text-align:right}
+.price small{display:block;font-size:var(--text-xs);font-weight:400;color:var(--ink-500)}
+.map{height:150px;border-radius:var(--radius-md);border:var(--border);
+     background:repeating-linear-gradient(45deg,var(--ink-100),var(--ink-100) 10px,#E6EAF0 10px,#E6EAF0 20px);
+     display:flex;align-items:center;justify-content:center;color:var(--ink-500);font-size:var(--text-sm)}
+.banner{border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3);
+        font-size:var(--text-sm);display:flex;gap:var(--space-2);align-items:flex-start}
+.banner.warn{background:var(--warn-100);color:var(--warn-700)}
+.banner.stop{background:var(--stop-100);color:var(--stop-700)}
+.banner.ok{background:var(--ok-100);color:var(--ok-700)}
+.summary{border:var(--border);border-radius:var(--radius-md);padding:var(--space-3);
+         display:flex;flex-direction:column;gap:var(--space-1);background:var(--ink-100)}
+.summary-row{display:flex;justify-content:space-between;font-size:var(--text-sm)}
+.summary-row.total{font-size:var(--text-base);font-weight:700}
+.code{font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:700;
+      letter-spacing:.12em;text-align:center;color:var(--accent-700)}
+.centre{text-align:center}
+.big-ok{font-size:var(--text-xl);font-weight:700;color:var(--ok-700);text-align:center}
+/* the four states */
+.skel{background:var(--ink-100);border-radius:var(--radius-sm);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.state{display:flex;flex-direction:column;align-items:center;gap:var(--space-3);
+       padding:var(--space-8) var(--space-4);text-align:center;color:var(--ink-700);flex:1;
+       justify-content:center}
+.state .icon{font-size:var(--text-xl)}
+.state .title{font-weight:500;color:var(--ink-900)}
+.state .actions{display:flex;gap:var(--space-2);flex-wrap:wrap;justify-content:center;width:100%}
+.state .actions .btn{width:auto;padding:0 var(--space-4)}
+</style>
+</head>
+<body>
+<div class="gallery">
+
+<h1>parkmitra — mockups</h1>
+<p class="sub">Every screen in the first release, in all four states: <strong>empty,
+loading, error, permission&nbsp;denied</strong>. Gate 4 artifact. Built from the tokens in
+<code>design/design-system.md</code> — no value appears here that is not a token.
+Phone frames are presentation only.</p>
+
+<!-- ══════════════════ S1 ══════════════════ -->
+<h2>S1 — Home: pick an area and a window</h2>
+<p class="note">Duration chips rather than an end-time picker: a driver thinks “two hours”,
+and it removes the whole end-before-start error class. No permission-denied state — the
+screen is public.</p>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Default / ready</div>
+  <div class="phone"><div class="screen">
+    <div><div class="brand">parkmitra</div><div class="tagline">Park near where you're going.</div></div>
+    <div class="label">Where</div>
+    <div class="chips">
+      <span class="chip">HITEC City</span><span class="chip" aria-pressed="true">Gachibowli</span>
+      <span class="chip">Madhapur</span><span class="chip">Kondapur</span>
+      <span class="chip">Hafeezpet</span><span class="chip">Financial District</span>
+      <span class="chip">Manikonda</span>
+    </div>
+    <div class="label">When</div>
+    <div class="chips"><span class="input filled" style="flex:1">Today</span>
+      <span class="input filled" style="flex:1">2:30 pm</span></div>
+    <div class="label">For how long</div>
+    <div class="chips"><span class="chip">1h</span><span class="chip" aria-pressed="true">2h</span>
+      <span class="chip">3h</span><span class="chip">4h</span><span class="chip">More</span></div>
+    <div style="flex:1"></div>
+    <button class="btn">Find parking</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Loading</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div><div class="brand">parkmitra</div><div class="tagline">Park near where you're going.</div></div>
+    <div class="label">Where</div>
+    <div class="chips">
+      <span class="skel" style="width:96px;height:44px"></span><span class="skel" style="width:110px;height:44px"></span>
+      <span class="skel" style="width:98px;height:44px"></span><span class="skel" style="width:104px;height:44px"></span>
+      <span class="skel" style="width:106px;height:44px"></span>
+    </div>
+    <div class="label">When</div>
+    <div class="chips"><span class="skel" style="flex:1;height:44px"></span><span class="skel" style="flex:1;height:44px"></span></div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Find parking</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Error — areas failed</div>
+  <div class="phone"><div class="screen">
+    <div><div class="brand">parkmitra</div><div class="tagline">Park near where you're going.</div></div>
+    <div class="label">Where</div>
+    <div class="state" style="padding:var(--space-6) 0">
+      <div class="icon" aria-hidden="true">⚠</div>
+      <div class="title">Couldn't load areas</div>
+      <div>Check your connection and try again.</div>
+      <div class="actions"><button class="btn">Retry</button></div>
+    </div>
+    <div class="label">When</div>
+    <div class="chips"><span class="input filled" style="flex:1">Today</span>
+      <span class="input filled" style="flex:1">2:30 pm</span></div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Find parking</button>
+  </div></div>
+  <p class="note" style="width:390px">Partial failure. The time inputs still work — a failed
+  area list does not blank the page.</p></div>
+
+  <div class="cell"><div class="state-label">Validation error</div>
+  <div class="phone"><div class="screen">
+    <div><div class="brand">parkmitra</div><div class="tagline">Park near where you're going.</div></div>
+    <div class="label">When</div>
+    <div class="field">
+      <div class="input bad filled">Yesterday, 2:30 pm</div>
+      <div class="err"><span aria-hidden="true">⚠</span><span>Pick a time from now onwards.</span></div>
+    </div>
+    <div class="label">For how long</div>
+    <div class="chips"><span class="chip">1h</span><span class="chip" aria-pressed="true">2h</span>
+      <span class="chip">3h</span><span class="chip">4h</span></div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Find parking</button>
+  </div></div>
+  <p class="note" style="width:390px">Error is tied to the field and carries an icon, not
+  just colour.</p></div>
+
+</div>
+
+<!-- ══════════════════ S2 ══════════════════ -->
+<h2>S2 — Results</h2>
+<p class="note">The empty state is the important one — it is the state that decides whether
+the secondary persona ever opens the product again, so it offers the two things that
+actually help rather than an apology.</p>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Results found</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Gachibowli · 2:30–4:30 pm</div>
+    <div class="map">map · 4 pins</div>
+    <div class="meta">4 spots unbooked</div>
+    <div class="card"><div class="card-top">
+      <div><div class="spot-name">Cyber Heights</div><div class="meta">apartment · 3 min walk</div></div>
+      <div class="price">₹40<small>per hour</small></div></div>
+      <div class="meta">6 bays unbooked</div><button class="btn">Choose</button></div>
+    <div class="card"><div class="card-top">
+      <div><div class="spot-name">Orchid Square</div><div class="meta">mall · 6 min walk</div></div>
+      <div class="price">₹30<small>per hour</small></div></div>
+      <div class="meta">2 bays unbooked</div><button class="btn btn-ghost">Choose</button></div>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Empty — nothing unbooked</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Gachibowli · 2:30–4:30 pm</div>
+    <div class="state">
+      <div class="icon" aria-hidden="true">🅿</div>
+      <div class="title">Nothing unbooked in Gachibowli for that window</div>
+      <div>Two things usually work:</div>
+      <div class="actions">
+        <button class="btn btn-ghost">Try another area</button>
+        <button class="btn">Try another time</button>
+      </div>
+    </div>
+  </div></div>
+  <p class="note" style="width:390px">Not an error — a normal, expected answer. Neutral
+  colour, never red.</p></div>
+
+  <div class="cell"><div class="state-label">Loading — incl. cold start</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div class="crumb"><span aria-hidden="true">‹</span> Gachibowli · 2:30–4:30 pm</div>
+    <div class="skel" style="height:150px"></div>
+    <div class="banner warn"><span aria-hidden="true">⏳</span>
+      <span>Still looking — the database is waking up.</span></div>
+    <div class="skel" style="height:96px"></div>
+    <div class="skel" style="height:96px"></div>
+  </div></div>
+  <p class="note" style="width:390px">Free-tier cold start is named rather than hidden
+  inside a spinner (<code>design/nfr.md</code>).</p></div>
+
+  <div class="cell"><div class="state-label">Error — search failed</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Gachibowli · 2:30–4:30 pm</div>
+    <div class="state">
+      <div class="icon" aria-hidden="true">⚠</div>
+      <div class="title">Couldn't search just now</div>
+      <div>Your area and time are still here.</div>
+      <div class="actions"><button class="btn">Retry</button></div>
+    </div>
+  </div></div>
+  <p class="note" style="width:390px">Inputs preserved — never make someone retype what
+  they just entered.</p></div>
+
+  <div class="cell"><div class="state-label">Degraded — map tiles down</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Gachibowli · 2:30–4:30 pm</div>
+    <div class="map" style="background:var(--ink-100)">Map unavailable</div>
+    <div class="meta">4 spots unbooked</div>
+    <div class="card"><div class="card-top">
+      <div><div class="spot-name">Cyber Heights</div><div class="meta">apartment · 3 min walk</div></div>
+      <div class="price">₹40<small>per hour</small></div></div>
+      <button class="btn">Choose</button></div>
+  </div></div>
+  <p class="note" style="width:390px">The list is complete on its own. The map is an
+  enhancement and never the only route to a spot.</p></div>
+
+</div>
+
+<!-- ══════════════════ S3 ══════════════════ -->
+<h2>S3 — Book</h2>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Default</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Cyber Heights</div>
+    <div class="meta">Tue 23 Sep · 2:30–4:30 pm</div>
+    <div class="label">Pick a bay</div>
+    <div class="chips"><span class="chip">B-02</span><span class="chip">B-07</span>
+      <span class="chip" aria-pressed="true">B-11</span><span class="chip">B-12</span></div>
+    <div class="label">Your details</div>
+    <div class="field"><div class="input filled">+91 98765 43210</div></div>
+    <div class="field"><div class="input filled">TS09AB1234</div></div>
+    <div class="field"><div class="input">Name (optional)</div></div>
+    <div class="summary">
+      <div class="summary-row"><span>2 hours × ₹40</span><span>₹80</span></div>
+      <div class="summary-row"><span class="meta">Part hours round up.</span><span></span></div>
+      <div class="summary-row total"><span>Total</span><span>₹80</span></div>
+    </div>
+    <button class="btn">Book this bay</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Loading — submitting</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div class="crumb"><span aria-hidden="true">‹</span> Cyber Heights</div>
+    <div class="meta">Tue 23 Sep · 2:30–4:30 pm</div>
+    <div class="label">Pick a bay</div>
+    <div class="chips"><span class="chip" aria-pressed="true">B-11</span></div>
+    <div class="summary"><div class="summary-row total"><span>Total</span><span>₹80</span></div></div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Booking…</button>
+  </div></div>
+  <p class="note" style="width:390px">Disabled on first submit — the double-submit guard.</p></div>
+
+  <div class="cell"><div class="state-label">Error — 409, bay taken</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Cyber Heights</div>
+    <div class="banner stop"><span aria-hidden="true">⚠</span>
+      <span>That bay was just taken for part of your window.</span></div>
+    <div class="state" style="padding:var(--space-6) 0">
+      <div class="title">We've re-checked what's unbooked</div>
+      <div>Here's what's actually free right now.</div>
+      <div class="actions"><button class="btn">See what's unbooked</button></div>
+    </div>
+  </div></div>
+  <p class="note" style="width:390px">The lost race. Never a generic failure — it returns
+  to a re-run search, not a stale list.</p></div>
+
+  <div class="cell"><div class="state-label">Error — 422, outside hours</div>
+  <div class="phone"><div class="screen">
+    <div class="crumb"><span aria-hidden="true">‹</span> Cyber Heights</div>
+    <div class="banner warn"><span aria-hidden="true">⚠</span>
+      <span>This spot is open 7 am to 11 pm.</span></div>
+    <div class="label">When</div>
+    <div class="chips"><span class="input bad filled" style="flex:1">11:30 pm</span></div>
+    <div class="err"><span aria-hidden="true">⚠</span><span>Pick a time inside opening hours.</span></div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Book this bay</button>
+  </div></div></div>
+
+</div>
+
+<!-- ══════════════════ S4 ══════════════════ -->
+<h2>S4 — Pay (simulated)</h2>
+<p class="note">The demo banner is standing and not dismissible on every state of this
+screen. The product must never imply it took money.</p>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Default</div>
+  <div class="phone"><div class="screen">
+    <div class="banner warn"><span aria-hidden="true">⚠</span>
+      <span><strong>Demo</strong> — no real payment is taken.</span></div>
+    <div class="centre"><div class="spot-name">Cyber Heights · B-11</div>
+      <div class="meta">Tue 23 Sep · 2:30–4:30 pm</div></div>
+    <div class="centre" style="font-size:var(--text-2xl);font-weight:700">₹80</div>
+    <div style="flex:1"></div>
+    <button class="btn">Pay ₹80 (simulated)</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Loading</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div class="banner warn"><span aria-hidden="true">⚠</span>
+      <span><strong>Demo</strong> — no real payment is taken.</span></div>
+    <div class="centre"><div class="spot-name">Cyber Heights · B-11</div></div>
+    <div class="centre" style="font-size:var(--text-2xl);font-weight:700">₹80</div>
+    <div style="flex:1"></div>
+    <button class="btn" disabled>Processing…</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Error — expired first</div>
+  <div class="phone"><div class="screen">
+    <div class="banner warn"><span aria-hidden="true">⚠</span>
+      <span><strong>Demo</strong> — no real payment is taken.</span></div>
+    <div class="state">
+      <div class="icon" aria-hidden="true">⌛</div>
+      <div class="title">This booking expired before payment</div>
+      <div>Unpaid bookings don't hold the bay.</div>
+      <div class="actions"><button class="btn">Search again</button></div>
+    </div>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Denied / already paid</div>
+  <div class="phone"><div class="screen">
+    <div class="banner ok"><span aria-hidden="true">✓</span>
+      <span>This booking is already paid.</span></div>
+    <div class="state">
+      <div class="title">Nothing more to do</div>
+      <div>Taking you to your confirmation.</div>
+      <div class="actions"><button class="btn">View booking</button></div>
+    </div>
+  </div></div>
+  <p class="note" style="width:390px">A repeat pay is forwarded, not errored — the outcome
+  they wanted already happened.</p></div>
+
+</div>
+
+<!-- ══════════════════ S5 ══════════════════ -->
+<h2>S5 — Confirmed</h2>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Default</div>
+  <div class="phone"><div class="screen">
+    <div class="big-ok">✓ Booked</div>
+    <div class="code">7K2M 9QX4 TB</div>
+    <button class="btn btn-ghost">Copy code</button>
+    <div class="banner warn"><span aria-hidden="true">!</span>
+      <span>Save this — it's the only way back to this booking.</span></div>
+    <div class="card">
+      <div class="spot-name">Cyber Heights · Bay B-11</div>
+      <div class="meta">12 Rd No 2, Gachibowli</div>
+      <div class="meta">Tue 23 Sep · 2:30–4:30 pm</div>
+      <div class="meta">₹80 · paid (simulated)</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn">I've arrived</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Loading</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div class="skel" style="height:32px;width:60%;margin:0 auto"></div>
+    <div class="skel" style="height:48px"></div>
+    <div class="skel" style="height:120px"></div>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Error — couldn't load</div>
+  <div class="phone"><div class="screen">
+    <div class="state">
+      <div class="icon" aria-hidden="true">⚠</div>
+      <div class="title">Couldn't load this booking</div>
+      <div>Your code is still valid.</div>
+      <div class="actions"><button class="btn">Retry</button></div>
+    </div>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Permission denied — wrong code</div>
+  <div class="phone"><div class="screen">
+    <div class="state">
+      <div class="icon" aria-hidden="true">🔎</div>
+      <div class="title">No booking with that code</div>
+      <div>Check the code and try again.</div>
+      <div class="actions"><button class="btn btn-ghost">Try another code</button></div>
+    </div>
+  </div></div>
+  <p class="note" style="width:390px"><strong>Identical to not-found by design.</strong>
+  Distinguishing “wrong code” from “someone else's booking” would confirm valid codes to
+  someone guessing — threat model T1.</p></div>
+
+</div>
+
+<!-- ══════════════════ S6 ══════════════════ -->
+<h2>S6 — Lookup</h2>
+<div class="row">
+
+  <div class="cell"><div class="state-label">Empty — nothing entered</div>
+  <div class="phone"><div class="screen">
+    <div class="brand">Find your booking</div>
+    <div class="field"><div class="label">Reference code</div>
+      <div class="input" style="font-family:var(--font-mono);letter-spacing:.12em">XXXX XXXX XX</div></div>
+    <button class="btn" disabled>Look up</button>
+    <div class="meta">The code is on your confirmation.</div>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Loading</div>
+  <div class="phone"><div class="screen" aria-busy="true">
+    <div class="brand">Find your booking</div>
+    <div class="field"><div class="label">Reference code</div>
+      <div class="input filled" style="font-family:var(--font-mono);letter-spacing:.12em">7K2M 9QX4 TB</div></div>
+    <button class="btn" disabled>Looking up…</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Error — not found</div>
+  <div class="phone"><div class="screen">
+    <div class="brand">Find your booking</div>
+    <div class="field">
+      <div class="input bad filled" style="font-family:var(--font-mono);letter-spacing:.12em">7K2M 9QX4 TZ</div>
+      <div class="err"><span aria-hidden="true">⚠</span><span>No booking with that code.</span></div>
+    </div>
+    <button class="btn">Look up</button>
+  </div></div></div>
+
+  <div class="cell"><div class="state-label">Denied — rate limited</div>
+  <div class="phone"><div class="screen">
+    <div class="brand">Find your booking</div>
+    <div class="banner stop"><span aria-hidden="true">⚠</span>
+      <span>Too many tries. Wait a minute before trying again.</span></div>
+    <div class="field"><div class="input" style="font-family:var(--font-mono)">XXXX XXXX XX</div></div>
+    <button class="btn" disabled>Look up</button>
+  </div></div>
+  <p class="note" style="width:390px">The enumeration control from threat model T1, made
+  visible because it has to be.</p></div>
+
+</div>
+
+</div>
+</body>
+</html>
