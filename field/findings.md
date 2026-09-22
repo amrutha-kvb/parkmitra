@@ -116,6 +116,59 @@ recorded and characterised rather than fixed mid-build.
 
 ---
 
+### F-07  The documented zsh completions one-liner fails with "command not found: compdef" unless compinit has already run
+Severity:    S3
+Area:        CLI — completions (zsh)
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), zsh 5.9, VS Code integrated terminal, niha v1.3.7
+Phase:       0, set up
+Steps:
+  1. niha completions --help        # read the documented example
+  2. zsh -c 'eval "$(niha completions zsh)"'
+  3. zsh -c 'autoload -Uz compinit && compinit -u && eval "$(niha completions zsh)"'   # contrast
+Expected:    the one-liner printed by `--help`, and repeated inside the generated script's own header, works as given — as the bash equivalent does.
+Actual:
+  $ niha completions --help
+  Examples:
+    niha completions bash                                         Print bash completion script
+    eval "$(niha completions zsh)"                                Enable zsh completions
+    niha completions fish > ~/.config/fish/completions/niha.fish  Install fish completions
+
+  $ niha completions zsh | head -3
+  #compdef niha niha-dev
+  # niha zsh completions
+  # Add to ~/.zshrc: eval "$(niha completions zsh)"
+
+  $ zsh -c 'eval "$(niha completions zsh)"'
+  (eval):136: command not found: compdef
+  (eval):137: command not found: compdef
+
+  $ zsh -c 'autoload -Uz compinit && compinit -u >/dev/null 2>&1 && eval "$(niha completions zsh)" && echo "EVAL OK (with compinit)"'
+  EVAL OK (with compinit)
+
+  $ bash -c 'eval "$(niha completions bash)" && echo "EVAL OK"'
+  EVAL OK
+Impact:      `compdef` only exists after zsh's completion system is initialised, and the
+             generated script calls it at lines 136-137 without autoloading `compinit`
+             or guarding for it. The script's own header tells the reader to add the line
+             to `~/.zshrc` — pasted at the top of a zshrc, or into one that never runs
+             `compinit`, it errors on every new shell with a message that names neither
+             niha nor the real cause. Bounded, and stated plainly: on a zshrc that runs
+             compinit first (oh-my-zsh does), placing the line after it works fine, so
+             this bites ordering and non-compinit setups rather than everyone. The bash
+             path has no equivalent requirement, so the two examples read as equivalent
+             when they are not.
+Suggested:   Emit a guard at the top of the zsh script — `(( $+functions[compdef] )) ||
+             { autoload -Uz compinit; compinit -u; }` — or, at minimum, change the
+             example and the in-script comment to state that the line must come after
+             `compinit`. The fish and bash outputs need no change.
+Disposition: FILED (#1018)
+
+Tier: T3 — cosmetic/setup friction with an obvious workaround, recorded not fixed.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
