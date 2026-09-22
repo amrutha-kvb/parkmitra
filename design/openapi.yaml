@@ -1,0 +1,357 @@
+openapi: 3.1.0
+
+info:
+  title: parkmitra API
+  version: 1.0.0
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    Short-stay parking against idle private capacity, Hyderabad.
+
+    Written at phase 3, BEFORE any implementation, and binding for the rest of the
+    project (programme rule: "API contract written before any implementation. It is
+    binding for the rest of the project.").
+
+    Two rules that shape every path below:
+
+    - **Money is integer paise.** Never rupees, never a float. `4000` is ₹40.00.
+      The client never sends an amount; the server computes it. See ADR-003.
+    - **A booking is addressed by its `reference_code`, never by its id.** Holding the
+      code is the authorisation to read or modify that booking. Ids are internal and
+      never appear in a URL. See ADR-002.
+
+# No authentication scheme applies anywhere in v1: there are no accounts
+# (ADR-002). The three /bookings/{reference_code} operations are authorised by
+# possession of a ~50-bit reference code supplied as a path parameter, which
+# OpenAPI cannot express as a securityScheme. Declaring `security: []` here is
+# the accurate statement — "no scheme applies" — rather than leaving it
+# undefined and letting a reader assume it was forgotten.
+security: []
+
+servers:
+  - url: /api
+    description: Same-origin route handlers
+
+tags:
+  - name: areas
+    description: The fixed list of searchable Hyderabad areas. Public.
+  - name: availability
+    description: Derived free-bay search. Never stored. Public.
+  - name: bookings
+    description: >
+      Create and read bookings. Reads and mutations are authorised by holding the
+      booking's reference_code, which is a path parameter rather than a security
+      scheme — see ADR-002.
+
+paths:
+
+  /areas:
+    get:
+      tags: [areas]
+      operationId: listAreas
+      summary: The fixed list of searchable areas
+      description: Seven Hyderabad areas. Public, no authorisation.
+      responses:
+        "200":
+          description: All active areas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [areas]
+                properties:
+                  areas:
+                    type: array
+                    items: { $ref: "#/components/schemas/Area" }
+
+  /availability:
+    get:
+      tags: [availability]
+      operationId: getAvailability
+      summary: Spots in an area with at least one bay free for the whole window
+      description: |
+        Availability is derived at query time from real bookings. There is no stored
+        availability. A bay is free if no non-cancelled booking overlaps the window.
+
+        Windows are half-open `[start, end)`: a bay booked 10:00–12:00 is available
+        from 12:00.
+      parameters:
+        - name: area
+          in: query
+          required: true
+          schema: { type: string, example: gachibowli }
+          description: Area slug
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: |
+            Matching spots. An empty array is a valid, expected answer — it is the
+            empty-result case the UI must handle, not an error.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spots, window]
+                properties:
+                  window:
+                    $ref: "#/components/schemas/Window"
+                  spots:
+                    type: array
+                    items: { $ref: "#/components/schemas/SpotAvailability" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /bookings:
+    post:
+      tags: [bookings]
+      operationId: createBooking
+      summary: Book a bay for a window
+      description: |
+        The server recomputes the price from the spot's hourly rate and the window
+        length — any `amount` in the request body is ignored.
+
+        Concurrency: the database refuses an overlapping booking via an exclusion
+        constraint. A losing race returns **409**, not 500. See ADR-001.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingRequest" }
+      responses:
+        "201":
+          description: |
+            Booked. The `reference_code` in this response is the only way to read this
+            booking again — it is not recoverable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: The bay was taken for an overlapping window
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: bay_unavailable
+                message: That bay was just taken for part of your window.
+        "422":
+          description: Window outside the spot's opening hours, or zero/negative length
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /bookings/{reference_code}:
+    get:
+      tags: [bookings]
+      operationId: getBooking
+      summary: Read a booking
+      description: |
+        The reference code is the authorisation. There is no other read path.
+
+        Rate limited: this endpoint is the enumeration surface for the whole system.
+      parameters:
+        - name: reference_code
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: The booking
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+        "404":
+          description: |
+            No such booking. Deliberately identical whether the code never existed or
+            simply is not yours — distinguishing them would confirm valid codes to
+            someone guessing.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /bookings/{reference_code}/pay:
+    post:
+      tags: [bookings]
+      operationId: payBooking
+      summary: Simulated payment
+      description: |
+        **No money moves.** v1 has no payment provider (`plan/scope.md`). This records a
+        `payments` row and moves the booking to `confirmed`, so the seam is real even
+        though the gateway is not. The UI must state this plainly to the user.
+      parameters:
+        - name: reference_code
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already paid, or the booking is cancelled or expired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /bookings/{reference_code}/arrive:
+    post:
+      tags: [bookings]
+      operationId: markArrival
+      summary: Driver marks arrival
+      description: |
+        The north-star signal (`discovery/metrics.md`). Self-reported, which is a known
+        measurement weakness — a stronger signal needs hardware that is out of scope.
+      parameters:
+        - name: reference_code
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: Arrival recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Booking is not confirmed, or arrival is already recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+
+  responses:
+    BadRequest:
+      description: Malformed or missing parameters
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such booking
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+
+    Area:
+      type: object
+      required: [slug, name, centre_lat, centre_lng]
+      properties:
+        slug: { type: string, example: gachibowli }
+        name: { type: string, example: Gachibowli }
+        centre_lat: { type: number, format: double, example: 17.4401 }
+        centre_lng: { type: number, format: double, example: 78.3489 }
+
+    Window:
+      type: object
+      description: Half-open. `end` is exclusive.
+      required: [start, end]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+
+    SpotAvailability:
+      type: object
+      required:
+        [spot_id, name, kind, address_line, lat, lng, price_per_hour_paise,
+         free_bays, estimated_total_paise]
+      properties:
+        spot_id: { type: integer, format: int64 }
+        name:
+          type: string
+          example: Cyber Heights Visitor Bay
+          description: Fictional in v1. No real venue is listed.
+        kind:
+          type: string
+          enum: [mall, apartment, office, gym, commercial]
+        address_line: { type: string }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        price_per_hour_paise:
+          type: integer
+          example: 4000
+          description: Paise. 4000 = ₹40.00.
+        free_bays:
+          type: integer
+          minimum: 1
+          description: Bays free for the WHOLE requested window.
+        estimated_total_paise:
+          type: integer
+          example: 8000
+          description: |
+            Whole hours, rounded up. A 90-minute window bills 2 hours.
+            Indicative — the authoritative amount is computed again at booking time.
+
+    BookingRequest:
+      type: object
+      required: [bay_id, start, end, driver_phone, vehicle_reg]
+      description: |
+        Note the absence of an `amount` field. This is deliberate — see ADR-003.
+      properties:
+        bay_id: { type: integer, format: int64 }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        driver_phone:
+          type: string
+          example: "+919876543210"
+          description: Personal data.
+        driver_name:
+          type: [string, "null"]
+          description: Personal data. Optional.
+        vehicle_reg:
+          type: string
+          example: TS09AB1234
+          description: Personal data.
+
+    Booking:
+      type: object
+      required:
+        [reference_code, status, window, amount_paise, spot_name, bay_label]
+      properties:
+        reference_code:
+          type: string
+          example: 7K2M9QX4TB
+          description: Treat as a secret. This is the authorisation for this booking.
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, expired]
+        window: { $ref: "#/components/schemas/Window" }
+        amount_paise: { type: integer, example: 8000 }
+        spot_name: { type: string }
+        bay_label: { type: string, example: B-12 }
+        address_line: { type: string }
+        arrived_at: { type: [string, "null"], format: date-time }
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Stable machine-readable code.
+          example: bay_unavailable
+        message:
+          type: string
+          description: |
+            Human-readable. Must never contain personal data, SQL, or a stack trace.
