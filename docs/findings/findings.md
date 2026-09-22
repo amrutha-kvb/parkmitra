@@ -129,8 +129,20 @@ Settings → Integrations, or (c) grant the `developer` role read access to see 
 status (even if not edit access) so this isn't a silent wall.
 
 ### Disposition
-FILED — blocked on org admin action (GitHub App connection or role permission grant),
-requested via support message dated 2026-09-22. Not self-fixable from the CLI repo since
-this is a platform/web-console permissions issue, not a CLI code defect — will confirm
-whether this is in-scope for a CLI-repo fix PR once we understand which repo the platform
-web console's authorization logic lives in.
+FIXED (PR niha-and-co/ai-platform#1011, closes issue #1010) — pending merge and demo video.
+
+**Update, 2026-09-22:** raised with the challenge team; their response confirmed
+workspace creation being admin-only is by design ("you will not have permission to
+create workspace as a developer... use niha CLI to build/develop anything and report
+your observations"). That narrows this finding: the *root* ask in the original
+"Suggested fix" (letting developers self-serve workspace creation) is out of scope —
+it's intentional. The defect that remains, and the one the PR fixes, is narrower but
+still real: `WorkspaceSetupPage.tsx` showed the "Connect GitHub in Settings" button and
+message to every role, including ones that can never complete that step, instead of
+telling them up front to ask an admin. Confirmed via source: the code's own comment
+above `handleConnectProvider` says "send the admin there" — the intent was always
+admin-only, it just was never actually checked. Fix: gate that specific UI on
+`isAdminRole()`, matching the pattern already used in `OrgSettingsLayout.tsx`.
+
+Building proceeds locally without a linked workspace per the team's guidance — bare
+`niha` works fine unlinked, as F-01 already showed.
