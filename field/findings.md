@@ -169,6 +169,75 @@ Tier: T3 — cosmetic/setup friction with an obvious workaround, recorded not fi
 
 ---
 
+### F-08  `--json` is documented on the list commands but ignored, and they still exit 0 — scripts get unparseable output and no error
+Severity:    S2
+Area:        CLI — `--json` / non-interactive output across compliance, memory, skills, prompts
+Scenario:    none
+Frequency:   every time (2/2 per command, 4 commands)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       0, set up
+Steps:
+  1. niha compliance list --help      # confirm the flag is documented
+  2. niha compliance list --json
+  3. niha compliance list --json | jq .
+  4. repeat 2 for: niha memory list --json, niha skills list --json, niha prompts list --json
+Expected:    machine-readable JSON on stdout, as every one of these commands documents: "--json  Output as JSON (machine-readable)".
+Actual:
+  $ niha compliance list --help
+  Usage: niha compliance list [options]
+
+  List compliance frameworks for your org
+
+  Options:
+    --json      Output as JSON (machine-readable)
+    -h, --help  display help for command
+
+  $ niha compliance list --json
+
+    Compliance frameworks (3)
+
+    NAME                 SCORE    ACTIVE
+    SOC 2                60%      yes
+    ISO 27001            60%      yes
+    GDPR                 50%      yes
+
+    Run 'niha compliance show <framework>' for requirement detail.
+
+  $ echo $?
+  0
+
+  $ niha compliance list --json | jq .
+  jq: parse error: Invalid numeric literal at line 2, column 13
+
+  Same for the other three, all exit 0:
+  $ niha memory list --json
+  No memories stored yet. `/memory add "<text>"` to store the first one.
+  $ niha skills list --json
+  No skills in your org library yet. `/skills search <query>` to look again, or `/help` for the project and personal skills loaded on this machine.
+  $ niha prompts list --json
+  No prompt templates available. `/prompts create` to add the first one.
+Impact:      This is the failure mode that costs a pipeline the most: the command reports
+             success, so the caller proceeds, and only the downstream parser fails — with
+             a jq error that names neither niha nor the flag. `compliance list` is the
+             clearest case because it is not an empty-state edge: it has real data, three
+             frameworks, renders a formatted ANSI table, and still exits 0. Any CI step
+             built on the documented contract silently produces garbage. ~15 minutes
+             across the four commands to establish that the flag is documented on each
+             and honoured by none.
+Suggested:   Either implement `--json` on these commands to emit the same data as a JSON
+             document, or remove the flag from their `--help` so the contract stops being
+             advertised. If it cannot be implemented now, failing loudly (non-zero with
+             "not implemented") would be far safer for scripts than exiting 0 with human
+             text. Related and probably the same root cause: `niha whoami --json` behaves
+             identically and breaks the worked example in its own `--help` (#1016).
+Disposition: FILED (#1020)
+
+Tier: T2 — a workaround exists (parse text, or call the platform API directly), so
+characterised and recorded rather than fixed mid-build. Filed as one finding rather than
+one per command: it is a single contract defect on four surfaces, not four defects.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
