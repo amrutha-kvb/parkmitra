@@ -61,43 +61,20 @@ Disposition: FILED (#1012)
 
 ---
 
-### F-02  Workspace setup offers every role a "Connect GitHub in Settings" button that routes non-admins into a page their role cannot open
-Severity:    S2
-Area:        platform web console — workspace-setup / org settings permissions
-Scenario:    none
-Frequency:   every time (1/1 observed; role-gated in router.tsx, so deterministic)
-Environment: macOS 26.2 (Darwin 25.2.0), Chrome 152, app.nihaandco.com, role: developer
-Phase:       0, set up
-Steps:
-  1. Sign in to app.nihaandco.com as a developer-role user, in an org where the niha GitHub App is not connected
-  2. Open https://app.nihaandco.com/workspaces/new
-  3. Click "Connect GitHub in Settings →"
-Expected:    a role that cannot complete this step is not offered a button that leads into it.
-Actual:
-  /workspaces/new:
-  The niha GitHub App isn't connected for this organisation yet. Install it from
-  Settings → Integrations and choose which repositories to grant, then come back
-  here to create this workspace.
-  [ Connect GitHub in Settings → ]
+### F-02  WITHDRAWN — out of scope for this challenge
+This block described a real defect in the platform **web console**
+(`src/web/src/pages/workspace-setup/WorkspaceSetupPage.tsx`): a "Connect GitHub in
+Settings" button shown to every role, routing non-admins into an admin-only page.
 
-  after clicking, /settings/integrations:
-  Access restricted
-  Your role (developer) does not have permission to view this page.
-  Contact your org admin to request access.
-Impact:      ~20 minutes lost assuming I had mis-set something in my own account, before
-             reading router.tsx and finding /settings/integrations is gated
-             `RequireRole roles={["admin"]}`. The code already knew: the comment above
-             `handleConnectProvider` in WorkspaceSetupPage.tsx says "send the admin
-             there" — the role is simply never checked before rendering the button.
-Suggested:   Gate the GitHub connect prompt on `isAdminRole()` (the helper already exists
-             in `@/lib/roles` and is used this way in OrgSettingsLayout.tsx). Non-admins
-             get an "ask an org admin to connect it" message and no button.
-Disposition: FIXED (PR #1011)
+It is withdrawn from the numbered findings because the challenge scopes findings to the
+CLI — `CLI_PATH = 'src/cli-ink'`, and the mandatory `niha-cli` label reads "Defect or
+request in the Niha CLI (src/cli-ink)". A web-console defect does not meet that.
 
-Note: the challenge team confirmed separately (2026-09-22) that developers are not meant
-to create workspaces at all, which matches the setup guide. That makes the root request
-in F-01/F-02 out of scope by design — but the misleading affordance in F-02, and the
-misleading hint in F-01, are both still real and still cost time.
+The work is not discarded and is not claimed here: issue #1010 and PR #1011 remain open
+as an ordinary good-faith contribution to the platform, with the `challenge-q3` label
+removed so it is not counted as a challenge finding. Numbering is left with a gap rather
+than resequenced, because each filed issue carries its own F-number in its body and the
+report and the issues must keep saying the same thing.
 
 ---
 
