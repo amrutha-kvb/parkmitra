@@ -1,0 +1,38 @@
+══════════ setup ══════════
+psql:./spike/schema.sql:9: NOTICE:  table "spike_bookings" does not exist, skipping
+schema loaded
+
+══════════ 1. a plain booking is accepted ══════════
+INSERT 0 1
+
+══════════ 2. an OVERLAPPING booking for the same spot is rejected ══════════
+ERROR:  conflicting key value violates exclusion constraint "no_double_booking"
+DETAIL:  Key (spot_id, window_at)=(1, ["2026-09-23 11:00:00+05:30","2026-09-23 13:00:00+05:30")) conflicts with existing key (spot_id, window_at)=(1, ["2026-09-23 10:00:00+05:30","2026-09-23 12:00:00+05:30")).
+exit=1  (non-zero means the database refused it, which is what we want)
+
+══════════ 3. an ADJACENT booking is allowed (12:00 start after 12:00 end) ══════════
+INSERT 0 1
+
+══════════ 4. the SAME window on a DIFFERENT spot is allowed ══════════
+INSERT 0 1
+
+══════════ 5. THE REAL TEST: 10 concurrent racers, same spot, same window ══════════
+Only one may win. If two win, the constraint is decorative and every
+booking endpoint needs its own lock.
+
+winners for spot 99 (expect exactly 1):
+ winners |   who   
+---------+---------
+       1 | racer-2
+(1 row)
+
+
+══════════ final state ══════════
+ id | spot_id |     driver     |                         window_at                         
+----+---------+----------------+-----------------------------------------------------------
+  1 |       1 | amrutha        | ["2026-09-23 10:00:00+05:30","2026-09-23 12:00:00+05:30")
+  3 |       1 | adjacent-ok    | ["2026-09-23 12:00:00+05:30","2026-09-23 14:00:00+05:30")
+  4 |       2 | different-spot | ["2026-09-23 10:00:00+05:30","2026-09-23 12:00:00+05:30")
+  5 |      99 | racer-2        | ["2026-09-23 18:00:00+05:30","2026-09-23 20:00:00+05:30")
+(4 rows)
+
