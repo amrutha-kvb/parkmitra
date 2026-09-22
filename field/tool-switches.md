@@ -39,10 +39,12 @@ field log.
 
 ---
 
-## 2026-09-22 — investigating and fixing the F-02 defect in the platform repository
+## 2026-09-22 — investigating and fixing a web-console defect (withdrawn from the findings)
 
-**Task:** reading `niha-and-co/ai-platform` source to locate the role-gating defect,
-writing the failing test, and preparing PR #1011.
+**Task:** reading `niha-and-co/ai-platform` source to locate a role-gating defect in the
+web console, writing the failing test, and preparing PR #1011. Later withdrawn from the
+numbered findings as out of scope (it is `src/web`, and the challenge scopes findings to
+`src/cli-ink`); the time is still logged here because it was spent.
 
 **Switched to:** Claude Code, plus ordinary local tooling (`git`, `gh`, `npx vitest`,
 `npx eslint`, `npx tsc`).
