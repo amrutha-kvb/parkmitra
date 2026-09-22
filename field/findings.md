@@ -163,7 +163,7 @@ Suggested:   Emit a guard at the top of the zsh script — `(( $+functions[compd
              { autoload -Uz compinit; compinit -u; }` — or, at minimum, change the
              example and the in-script comment to state that the line must come after
              `compinit`. The fish and bash outputs need no change.
-Disposition: FILED (#1018)
+Disposition: FIXED (PR #1021)
 
 Tier: T3 — cosmetic/setup friction with an obvious workaround, recorded not fixed.
 
