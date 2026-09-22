@@ -39,7 +39,7 @@ Suggested:   Title the category by origin rather than a single fixed string — 
              skills" only for org-scope (trust: approved), and "Personal skills" /
              "Project skills" for user- and project-scope. `ORIGIN_LABEL` already holds
              the right words; the heading just does not use them.
-Disposition: FILED (#1015)
+Disposition: FIXED (PR #1019)
 
 Tier: T3 — cosmetic, recorded not fixed.
 
