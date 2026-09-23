@@ -13,7 +13,7 @@ near where you are going and holds it by the hour.
 
 ## Why this exists
 
-On the night of 21 September 2026 there was a car, a lane too narrow to park in without
+On the night of 11 September 2026 there was a car, a lane too narrow to park in without
 blocking it, and a building with no parking of its own. Three minutes away, a gym had an
 empty lot.
 
