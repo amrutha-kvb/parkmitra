@@ -55,6 +55,10 @@ test("a driver can find a bay, book it, pay, and come back with only the code", 
 
   // ── S5: the reference code is the product's whole promise ──────────────────
   await expect(page).toHaveURL(/\/confirmed/, { timeout: 30_000 });
+  // The URL changes before the booking has been fetched and rendered. Reading
+  // the body on the URL alone is a race, and it failed intermittently for that
+  // reason rather than because anything was wrong with the product.
+  await expect(page.getByText(/booked/i).first()).toBeVisible({ timeout: 30_000 });
   const body = await page.locator("body").innerText();
   const code = body.replace(/\s+/g, "").match(/[0-9A-HJKMNP-TV-Z]{10}/)?.[0];
   expect(code, "a reference code must be shown on the confirmation").toBeTruthy();
