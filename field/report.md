@@ -6,7 +6,7 @@
 
 ## Summary
 
-Fourteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+Fifteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
 verbatim output. Three fix PRs raised. Four further candidates were investigated and
 **discarded rather than banked**, including two of my own measurement errors, and one filed
 finding was **publicly corrected** when better evidence contradicted part of it.
@@ -36,13 +36,14 @@ another 28 days. Most of what follows flows from those two facts.
 | F-16 | S2 | [#1035](https://github.com/niha-and-co/ai-platform/issues/1035) | **The same generated workflow references an action in a private repo**, so no consumer's runner can resolve it |
 | F-17 | S2 | [#1036](https://github.com/niha-and-co/ai-platform/issues/1036) | `export --json` is documented as shorthand for `--format json`, emits markdown, exits 0 |
 | F-18 | S2 | [#1037](https://github.com/niha-and-co/ai-platform/issues/1037) | **`export` reports "Total time 2s" for a 41-minute session**, contradicting its own timestamps four lines above |
+| F-19 | **S1** | [#1038](https://github.com/niha-and-co/ai-platform/issues/1038) | **23 of 36 turns failed; all 36 were counted and the session exported as "Outcome: completed"** |
 
 Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
 [#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
 [#1034](https://github.com/niha-and-co/ai-platform/pull/1034) (F-15). Each carries
 before-and-after output and a test that fails without the fix.
 
-### The four that matter most
+### The five that matter most
 
 **F-09 — Guardian refuses ordinary coding vocabulary.** `../lib/db` in a prompt is blocked
 as `path_traversal`; `DELETE FROM bookings` is blocked as `sql`. Both isolated against
@@ -100,6 +101,35 @@ for all of them. I found it by trying to do exactly that.
 Same shape as F-14: a summary line contradicting data the command has already printed. When
 two fields in one table disagree, the tool is asking the reader to notice on its behalf.
 
+**F-19 — the tool counts failures as work, and then calls the result "completed".** The only
+finding here rated S1, and the last one this build produced.
+
+When the organisation's provider quota ran out mid-session, 23 consecutive turns were
+rejected with a hard 400. niha wrote each one to `turns.jsonl` with an empty response and
+zero cost — and **incremented `turnCount` for every one of them.** `niha export` then
+summarised the session as:
+
+```
+| Turns   | 36                                     |
+| Outcome | completed with governance observations |
+```
+
+Thirteen of those 36 did work. The session did not complete; it was refused 23 times in a row.
+
+`turnCount` is the only machine-readable progress signal a session exposes, and it is the
+tool's own statement that a turn happened. My harness polled it, watched it advance 23 times,
+and reported healthy progress for two minutes while nothing at all was running. The first
+visible symptom was turns becoming suspiciously fast — nine seconds each, for prompts like
+"build the owner dashboard screen".
+
+**The non-interactive path gets this right**, which is what makes the REPL's behaviour look
+like an oversight rather than a decision: `niha ask` exits 4 and prints the provider error.
+
+This is the third member of a family — F-13, F-15, F-19 — where the tool reports success
+while doing nothing. It is the one I would fix first, because the failure is invisible in the
+live session *and* in the artifact produced afterwards. Reviewing a colleague's export, you
+cannot tell 36 turns of work from 13.
+
 ---
 
 ## The correction, and what it cost
@@ -127,12 +157,21 @@ confidently from what is left. I did that with the tool's output in front of me.
 | **B** long sessions | B5, B6, B8 measured; B7 none to report | **B1, B2, B3 in progress** |
 | **C** recording discipline | C1, C2, C3, C5 | C4 (macOS only) |
 
-**The long-session protocol was not completed, and I am not going to present it as if it
-were.** It requires three sessions over two hours, one over four, and one resumed after a
-full day's gap. The provider outage consumed 22 September entirely; credits returned around
-14:30 on the 23rd, and the credential then expired mid-session that evening. What exists is
-session 1 (`259a8a57`), registered in `field/sessions/` with per-turn latency and pause
-measurements, and the export reporting 6 turns, 62 tool calls, $0.2629.
+**The long-session protocol was not completed, and it is now unreachable.** It requires
+three sessions over two hours, one over four, and one resumed after a full day's gap.
+
+Three things stopped it, and only the last is final. The provider outage consumed 22
+September entirely (F-03). The credential expired mid-session on the 23rd (F-13, F-14). Then
+at 23:09 on the 23rd the organisation's API usage limit was exhausted, with access returning
+**2026-10-01 — five days after the deadline**. B3 is the sharpest loss: session 1 was reserved
+on day one and deliberately left untouched so it could be resumed after a full day's gap, and
+resuming needs a model call.
+
+What the protocol did produce is measured rather than estimated, and is in
+`field/sessions/`: **B5** latency across a long session (29s mean over the first ten turns,
+69s over the last ten, max 234s), **B6** no pause over sixty seconds across 53 real turns,
+**B7** no crash or lost session attributable to niha, **B8** cost per session ($0.85 for 41
+minutes, $0.70 for 28). And F-19, which the failure itself handed me.
 
 **A2 is the most interesting thing I did observe.** Asked to write `lib/money.ts`, the tool
 held ADR-003's integer-paise rule perfectly across every turn — no float ever entered the

@@ -1,0 +1,14 @@
+{
+  "label": "session 3 \u2014 owner surface, stopped by provider quota",
+  "session_id": "687268af-dad5-45b5-968e-4c2fb71bbdd5",
+  "started": "2026-09-23T17:12:18.224Z",
+  "ended": "2026-09-23T17:40:23.530Z",
+  "duration_human": "0h 28m",
+  "turns_recorded_by_niha": 36,
+  "turns_that_actually_ran": 13,
+  "turns_that_failed": 23,
+  "failure": "Provider error 400 \u2014 organisation API usage limit exhausted; regains access 2026-10-01T00:00Z",
+  "first_failure_at": "2026-09-23T17:37:01.040Z",
+  "total_cost_usd": 0.6998,
+  "note": "niha counted all 36 as turns and exported the session as 'completed'. Filed as #1038. The real figure is 13."
+}
