@@ -4,7 +4,7 @@ Two personas, behavioural rather than demographic. Age, income and job title are
 deliberately — none of them predict what a person does when they cannot find a bay.
 
 The programme requires that this be useful to a named person. It is: the primary persona
-is a real person, named, who hit this problem on 2026-09-21 and whose response to it is
+is a real person, named, who hit this problem on 2026-09-11 and whose response to it is
 the reason the project exists.
 
 ---
@@ -15,7 +15,7 @@ the reason the project exists.
 
 **The behaviour that defines her:** she decides where to put the car *before* she leaves,
 not on arrival. When there is no plan, she does not circle — she changes the trip, or she
-finds a private lot she has some social claim on. On 2026-09-21 that meant leaving the car
+finds a private lot she has some social claim on. On 2026-09-11 that meant leaving the car
 at her gym, because the gym had space and she is a member. She optimises for the car being
 *safe and not in anyone's way*, not for the shortest walk.
 
