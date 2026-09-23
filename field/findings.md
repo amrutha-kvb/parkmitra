@@ -485,6 +485,84 @@ Tier: T3 — cosmetic in effect, recorded rather than fixed mid-build.
 
 ---
 
+### F-13  Governance stops enforcing and the pre-commit hook silently allows commits: "Not authorized to evaluate rules" for a workspace niha itself provisioned
+Severity:    S2
+Area:        CLI — check / hooks / workspace authorisation
+Scenario:    none
+Frequency:   every time once it starts (6/6). It worked earlier in the same session on the same machine and account, then stopped.
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7, org AI Challenge Q3 2026, role capability_builder, trust L1
+Phase:       9, run
+Steps:
+  1. niha check                      # earlier the same session: PASS, 20 rules
+  2. niha check                      # later: not authorized
+  3. niha whoami                     # token still valid
+  4. niha status                     # reports the workspace as not provisioned
+  5. cat .niha/workspace.yaml        # the id from the error is here, written by niha
+  6. git commit                      # observe what the installed hook does
+Expected:    either the rules evaluate, or the failure is explained accurately and the governance hook makes a deliberate, visible decision about whether to allow the commit.
+Actual:
+  Earlier in this session, on this machine and account:
+  $ niha check
+    Governance Check — workspace
+    Passed (20)
+    ✓ 900a941b-f3f8-5333-ab93-8f1b47909a9a Branch protection enabled
+
+  Later, unchanged account, same directory:
+  $ niha check
+  Not authorized to evaluate rules for 42f67bef-192d-4c09-bd04-04c280704073. Run niha login or check your role.
+
+  The suggested remedy does not apply — the session is fine:
+  $ niha whoami
+    Email:     amrutha.korumilli@techatcore.com
+    Role:      capability_builder
+    Token:     valid for 28d 23h
+
+  And niha's own status disagrees that the workspace exists at all:
+  $ niha status
+    Project:   parkmitra (repo)  ·  id amrutha-kvb/parkmitra
+    Workspace: local-only (offline or not yet provisioned)
+
+  But the id in the error is one niha wrote itself:
+  $ cat .niha/workspace.yaml
+  workspace:
+    id: 42f67bef-192d-4c09-bd04-04c280704073
+    name: parkmitra
+
+  The installed pre-commit hook then fails open:
+  $ git commit -m "probe: does the governance hook block or allow?"
+  niha: governance check skipped (commit allowed) — Not authorized to evaluate rules for 42f67bef-192d-4c09-bd04-04c280704073. Run niha login or check your role.
+  [phase-9/run 12afdad] probe: does the governance hook block or allow?
+  $ echo $?
+  0
+
+  Not branch-specific: reproduced on main and on a feature branch.
+Impact:      A governance product silently stops governing. `niha hooks install` sets the
+             hook up as "Runs niha check --ci before every commit", and from this point it
+             runs nothing — every commit passes unchecked, including the secret scan and
+             the SQL-concatenation rule, with one grey line of output as the only signal.
+             In a team that installed this hook deliberately, nobody would notice for days.
+             Three things compound. The failure is silent in effect; `status` and `check`
+             disagree about whether the workspace exists; and the remedy offered
+             ("Run niha login or check your role") is wrong, because the token is valid and
+             the role has not changed — which sends the user to re-authenticate for nothing.
+             ~25 minutes establishing that the session was fine, the branch was irrelevant,
+             and the id came from niha's own workspace.yaml.
+Suggested:   Three separate things. (a) Reconcile authorisation with provisioning: if
+             `status` reports a workspace as not provisioned, `check` should not be
+             authorising against its id — and if the id in `.niha/workspace.yaml` is stale
+             or was never registered, say exactly that and offer `niha init --refresh`.
+             (b) Make the hook's failure mode deliberate and configurable: failing open is
+             defensible for a developer's commit, but it should be a stated policy, and
+             loud — the current one-line notice is easy to miss in a normal commit. (c)
+             Stop suggesting `niha login` when the credential is demonstrably valid; it
+             costs the user a re-auth and does not fix anything.
+Disposition: FILED (#1031)
+
+Tier: T2 — commits still work, so there is a workaround in the sense that nothing blocks,
+which is exactly the problem. Recorded and characterised rather than fixed mid-build.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
