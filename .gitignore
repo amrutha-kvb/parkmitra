@@ -28,8 +28,11 @@ test-results/
 # The workflow exactly as generated is preserved at
 # field/artifacts/niha-generated-workflow.yml.
 
-# typescript incremental build cache
+# typescript incremental build cache. dist/ is not a build output of this
+# project at all — Next.js builds to .next/ — but a stray dist/tsconfig.tsbuildinfo
+# got committed early and was only noticed during the v1.0.0 fresh-clone check.
 *.tsbuildinfo
+dist/
 
 # playwright
 test-results/
