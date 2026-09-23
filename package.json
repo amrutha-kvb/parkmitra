@@ -6,23 +6,41 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "vitest run"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:setup": "./scripts/db-setup.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run test && npm run test:e2e"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "Short-stay parking against idle private capacity, Hyderabad.",
   "dependencies": {
+    "@types/leaflet": "^1.9.22",
+    "leaflet": "^1.9.4",
     "next": "^16.3.6",
     "pg": "^8.23.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "typescript": "^7.0.2",
+    "vercel": "^59.25.4",
     "vitest": "^4.1.11"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

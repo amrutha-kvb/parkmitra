@@ -7,9 +7,6 @@ out/
 next-env.d.ts
 
 # secrets — never commit. DATABASE_URL lives in the host's settings.
-.env
-.env.*
-!.env.example
 
 # build / test output
 coverage/
@@ -22,3 +19,24 @@ test-results/
 # niha local-only state (the tool writes its own .niha/.gitignore too)
 .niha/ledger.jsonl
 .niha/settings.local.json
+
+# niha regenerates this unrequested workflow on every run; it also cannot be
+# pushed without the workflow OAuth scope. Kept out of the repo deliberately.
+# A copy is preserved as evidence in field/artifacts/.
+.github/
+
+# playwright
+test-results/
+playwright-report/
+.vercel
+
+# secrets — never committed. DATABASE_URL lives in the host's environment
+# settings (design/threat-model.md T7).
+#
+# Order matters and bit us once: `vercel link` appended its own `.env*` BELOW an
+# earlier `!.env.example` negation, which silently re-ignored the example file.
+# A judge following the README then hit 'cp: .env.example: No such file'. Keep
+# this as the single env block, with the negation last.
+.env
+.env.*
+!.env.example

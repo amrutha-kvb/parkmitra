@@ -238,6 +238,79 @@ one per command: it is a single contract defect on four surfaces, not four defec
 
 ---
 
+### F-09  Guardian blocks any prompt containing `../`, so ordinary relative imports cannot be discussed or written
+Severity:    S2
+Area:        Guardian / prompt input filtering — `niha ask`
+Scenario:    A1 (give it the task from the brief alone and see whether it produces the right thing)
+Frequency:   every time (6/6, two independent triggers, each isolated against a control)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7, org AI Challenge Q3 2026
+Phase:       6, build
+Steps:
+  1. niha ask "In one sentence, what does the import path ../lib/db refer to?"
+  2. niha ask "In one sentence, what does the import path lib/db refer to?"      # control, differs only by ../
+  3. repeat step 1
+Expected:    `../` in a prompt is read as what it is in this context — a relative module path — and the request is answered. A path-traversal control should apply to file operations the agent attempts, not to the characters in the user's sentence.
+Actual:
+  $ niha ask "In one sentence, what does the import path ../lib/db refer to?"
+  Error: Request blocked by Guardian: Injection attack detected: path_traversal
+
+  $ niha ask "In one sentence, what does the import path lib/db refer to?"
+  lib/db exports a single shared PostgreSQL connection pool (via the pg library) that is initialised from the DATABASE_URL environment variable.
+
+  $ niha ask "In one sentence, what does the import path ../lib/db refer to?"
+  Error: Request blocked by Guardian: Injection attack detected: path_traversal
+
+  The control differs only by the two characters `..`, so the trigger is isolated to
+  that substring appearing anywhere in the prompt text.
+
+  Originally hit on a real build task, not a probe:
+  $ niha ask "Create tests/concurrency.test.ts ... Import pool as a DEFAULT import from ../lib/db ..." --permission-mode auto --max-turns 20
+  Error: Request blocked by Guardian: Injection attack detected: path_traversal
+Impact:      Blocks a large class of ordinary coding requests. `../` is how relative
+             parent imports are written in TypeScript and JavaScript, and the same two
+             characters appear in Python (`from ..module import x`), Go, Rust, shell paths
+             and virtually every language's module or path syntax. Any prompt that names
+             such a path — to write it, review it, or merely explain it — is refused with
+             a security error rather than answered.
+             Cost here: it blocked creation of `tests/concurrency.test.ts`, the test that
+             proves this product's central guarantee, and the failure mode is confusing
+             because the message accuses the user of an injection attack rather than
+             naming the offending characters. ~15 minutes to work out that two characters
+             in the prompt were the cause, and the workaround is to write the file by hand
+             or phrase the path in a way the filter does not recognise — neither of which
+             the error suggests.
+Suggested:   Apply path-traversal detection to the paths the agent actually resolves when
+             it performs a file operation, not to the free text of the prompt. The agent
+             already has a write-containment sandbox and a protected-paths list, which is
+             the correct place for this control and which would still stop a genuine
+             traversal. If a prompt-level heuristic is kept, it should at minimum exclude
+             `../` occurring inside an import specifier or a quoted path, and the message
+             should name the substring that triggered it so the user can rephrase rather
+             than guess.
+Disposition: FILED (#1027)
+
+**Second trigger, same root cause (added after the first was filed):** SQL syntax in the
+prompt is blocked the same way.
+
+  $ niha ask "In one sentence, explain what DELETE FROM bookings does."
+  Error: Request blocked by Guardian: Injection attack detected: sql
+
+  $ niha ask "In one sentence, explain what a row removal statement on the bookings table does."
+  > ⚠️ Security note (SEC-004): ... any DELETE targeting the bookings table must use
+  > parameterised queries/prepared statements ...
+
+The control is answered, and its answer discusses DELETE against bookings freely — the
+same content the blocked request asked for. So the trigger is SQL vocabulary in the user's
+text, not anything the agent would do. `DELETE FROM` is ordinary vocabulary for a tool
+that writes migrations.
+
+Tier: T2 — a workaround exists (write the file by hand, or avoid the vocabulary), so
+characterised and recorded rather than fixed mid-build. Filed as ONE finding with two
+triggers rather than two findings, because the root cause is single: prompt text is
+scanned for attack signatures instead of the operations the agent attempts.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
