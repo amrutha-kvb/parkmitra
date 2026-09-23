@@ -35,7 +35,7 @@ for the exclusion constraint and returns 503 if it is missing. The app can serve
 perfectly while quietly allowing two cars into one bay, and a liveness ping would call that
 healthy. `scripts/health-alert.sh` polls it and opens a GitHub issue.
 
-**Continuous integration.** Typecheck, 219 unit tests and the Playwright suite run on
+**Continuous integration.** Typecheck, 237 unit tests and the Playwright suite run on
 every pull request against a real Postgres 16 service container with the real migrations
 applied, plus an explicit assertion that the exclusion constraint exists before any test
 runs.
