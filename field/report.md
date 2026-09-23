@@ -130,7 +130,11 @@ A field report that only lists defects is not a field report.
 
 - **`niha check` is the best thing here.** 20 rules, sub-2-second commits through the hook,
   and it independently flagged SEC-004 (SQL string concatenation) while I was working on
-  exactly that area.
+  exactly that area. With the credential restored at the end of the build it runs clean on
+  the shipped product — `PASS — 20/20 passed, 0 advisory, 0 blocked` — and the pre-commit
+  hook governs every commit again, which is the behaviour F-13 describes the absence of.
+  The rules are well chosen: branch protection, no hardcoded secrets, typed API responses,
+  input validation, integration tests, PR review required. Nothing in that list is padding.
 - **Permission denials are excellently written.** "this call needs confirmation and this is
   a non-interactive run… Add one to `.niha/settings.local.json`, or run it in the niha REPL.
   For a one-off, pass `--permission-mode auto`." Cause, fix, and a one-off workaround in one
@@ -151,6 +155,7 @@ A field report that only lists defects is not a field report.
 | Provider outage (22 Sep) | ~20 hours — the whole of day one for anything model-backed |
 | Guardian false positives (F-09) | ~30 min, plus writing the concurrency test by hand |
 | Credential expiry + F-14 | ~40 min, plus a wrong report and a public correction |
+| Two device-code re-logins timing out unattended | ~25 min of the closing phase |
 | `assess` / rules identity (F-10, F-11) | ~35 min |
 | Chasing my own harness bugs | ~50 min (see below) |
 
