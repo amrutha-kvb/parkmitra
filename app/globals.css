@@ -717,3 +717,37 @@ select:focus-visible {
 .site-header__wordmark:hover {
   color: var(--accent-600);
 }
+
+/* --------------------------------------------------------------------------
+   REDUCED MOTION
+   --------------------------------------------------------------------------
+   design/a11y.md has required this since the baseline was written:
+   "prefers-reduced-motion: reduce removes all transitions and any skeleton
+   shimmer." It was never implemented. The clause-by-clause audit in
+   field/a11y-audit.md found it — automated checks do not catch a missing media
+   query, because nothing is wrong with the page they can see.
+
+   The skeleton shimmer is the one that matters. It is an infinite pulse, and an
+   infinite animation is exactly what triggers discomfort for people with
+   vestibular disorders; it is also the animation most likely to be on screen
+   while someone waits.
+
+   `animation: none` rather than a near-zero duration: a 0.01ms infinite
+   animation still fires events forever and still repaints.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The shimmer is decorative. Stop it outright and leave the skeleton as a
+     static block, which still communicates "loading" through aria-busy. */
+  .skeleton {
+    animation: none !important;
+  }
+}
