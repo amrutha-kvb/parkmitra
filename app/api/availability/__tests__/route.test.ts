@@ -70,6 +70,11 @@ const SPOT_FIXTURE = {
   lng: 78.3502,
   price_per_hour_paise: 4000,
   free_bays: 3,
+  bays: [
+    { bay_id: 11, label: "B-11" },
+    { bay_id: 12, label: "B-12" },
+    { bay_id: 13, label: "B-13" },
+  ],
   estimated_total_paise: 8000,
 };
 
@@ -262,6 +267,7 @@ describe("successful availability search", () => {
     expect(spot.lng).toBe(SPOT_FIXTURE.lng);
     expect(spot.price_per_hour_paise).toBe(SPOT_FIXTURE.price_per_hour_paise);
     expect(spot.free_bays).toBe(SPOT_FIXTURE.free_bays);
+    expect(spot.bays).toEqual(SPOT_FIXTURE.bays);
     expect(spot.estimated_total_paise).toBe(SPOT_FIXTURE.estimated_total_paise);
   });
 

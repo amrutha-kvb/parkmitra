@@ -229,19 +229,30 @@ function Banner({
  */
 function SpotCard({
   spot,
+  area,
   start,
   end,
   isPrimary,
 }: {
   spot: SpotAvailability;
+  area: string;
   start: string;
   end: string;
   isPrimary: boolean;
 }) {
+  // `area` must travel with the link: the book screen re-queries availability to
+  // list this spot's free bays, and that query is keyed on the area. Without it
+  // the book screen silently renders no bays at all.
+  // Keys must match exactly what app/book/page.tsx reads: spot_id, area,
+  // start, end, rate_paise, name. A mismatch here fails silently — the book
+  // screen simply renders no bays and disables its own submit button.
   const bookParams = new URLSearchParams({
-    spot: String(spot.spot_id),
+    spot_id: String(spot.spot_id),
+    area,
     start,
     end,
+    rate_paise: String(spot.price_per_hour_paise),
+    name: spot.name,
   });
 
   return (
@@ -676,7 +687,8 @@ export default function SearchPage() {
             {spots.map((spot, i) => (
               <li key={spot.spot_id}>
                 <SpotCard
-                  spot={spot}
+                  area={area}
+              spot={spot}
                   start={start}
                   end={end}
                   isPrimary={i === 0}

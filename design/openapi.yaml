@@ -296,6 +296,23 @@ components:
           type: integer
           minimum: 1
           description: Bays free for the WHOLE requested window.
+        bays:
+          type: array
+          description: |
+            The individual bays that are free for the whole window.
+
+            Added at phase 6, deliberately and not by drift: the booking screen
+            must let a driver choose a labelled bay ("B-11" is what makes a
+            confirmation usable while standing in a car park — see
+            design/wireframes/wireframes.md), and a bare count cannot express
+            that. POST /bookings takes a bay_id, so without this the client had
+            no legal way to obtain one.
+          items:
+            type: object
+            required: [bay_id, label]
+            properties:
+              bay_id: { type: integer, format: int64 }
+              label: { type: string, example: B-12 }
         estimated_total_paise:
           type: integer
           example: 8000

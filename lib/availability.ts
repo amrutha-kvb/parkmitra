@@ -32,6 +32,12 @@ import { computeAmountPaise } from "./money";
 // Fields are in schema-declaration order so a diff against the spec is trivial.
 // ---------------------------------------------------------------------------
 
+/** One entry in the `bays` array of {@link SpotAvailability}. Matches the anonymous inline schema in openapi.yaml. */
+export interface BayItem {
+  bay_id: number;
+  label: string;
+}
+
 /** One spot returned by {@link searchAvailability}. Matches `SpotAvailability` in openapi.yaml. */
 export interface SpotAvailability {
   spot_id: number;
@@ -43,6 +49,8 @@ export interface SpotAvailability {
   price_per_hour_paise: number;
   /** Number of bays free for the WHOLE requested window. Always ≥ 1. */
   free_bays: number;
+  /** Individual bays free for the whole window, ordered by label. */
+  bays: BayItem[];
   /** Indicative total: whole hours rounded up × price_per_hour_paise. */
   estimated_total_paise: number;
 }
@@ -74,7 +82,8 @@ export interface SpotAvailability {
  *  4. WHERE b.id IS NULL — keep only bays that have NO such conflicting
  *     booking (i.e. the LEFT JOIN found nothing).
  *
- *  5. GROUP BY spot — aggregate free bay count per spot.
+ *  5. GROUP BY spot — aggregate free bay count per spot and collect the
+ *     free bay ids and labels into a JSON array ordered by label.
  *
  *  6. HAVING COUNT(*) >= 1 — defence-in-depth; the WHERE already guarantees
  *     this, but being explicit satisfies the spec's `minimum: 1` on free_bays.
@@ -100,7 +109,11 @@ const AVAILABILITY_SQL = `
     s.lat                   AS lat,
     s.lng                   AS lng,
     s.price_per_hour_paise  AS price_per_hour_paise,
-    COUNT(bay.id)::integer  AS free_bays
+    COUNT(bay.id)::integer  AS free_bays,
+    json_agg(
+      json_build_object('bay_id', bay.id::integer, 'label', bay.label)
+      ORDER BY bay.label
+    )                       AS bays
   FROM   area_cte
   JOIN   spots  s   ON  s.area_id  = area_cte.id
                     AND s.is_active = true
@@ -159,6 +172,7 @@ export async function searchAvailability(
     lng: number;
     price_per_hour_paise: number;
     free_bays: number;
+    bays: BayItem[];
   }>(AVAILABILITY_SQL, [areaSlug, startIso, endIso]);
 
   return result.rows.map((row) => ({
@@ -170,6 +184,7 @@ export async function searchAvailability(
     lng: row.lng,
     price_per_hour_paise: row.price_per_hour_paise,
     free_bays: row.free_bays,
+    bays: row.bays,
     estimated_total_paise: computeAmountPaise(
       row.price_per_hour_paise,
       startIso,

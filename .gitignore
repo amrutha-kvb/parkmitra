@@ -27,3 +27,7 @@ test-results/
 # pushed without the workflow OAuth scope. Kept out of the repo deliberately.
 # A copy is preserved as evidence in field/artifacts/.
 .github/
+
+# playwright
+test-results/
+playwright-report/
