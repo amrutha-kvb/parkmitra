@@ -33,29 +33,12 @@ ends. Money is integer paise everywhere (ADR-003) and is **never** accepted from
 
 ---
 
-## The next four tickets
+## The next three tickets
 
 In priority order. Each is scoped to be finishable, with the acceptance criterion that
 matters stated rather than implied.
 
-### 1. Rate-limit the booking lookup — S, security
-
-`GET /api/bookings/{code}` has no throttling. Twenty-five rapid requests for invalid codes
-all return 404 with no back-off (`field/security-review.md`).
-
-This is **defence in depth, not the barrier** — a ~50-bit reference code is the real
-defence and is doing its job. It is first on this list because it is the only open item
-that is a security gap rather than a feature.
-
-Do it with shared state, not an in-memory counter: on serverless, invocations do not
-reliably share process state, so a local limiter throttles inconsistently while looking
-like a control. Upstash Redis is on the approved free tier.
-
-**Done when:** the 21st lookup from one IP inside a minute returns 429 with `Retry-After`,
-proven by a test; and `design/openapi.yaml` documents the 429 again — it was deliberately
-amended to stop promising one, so restore it only once it is true.
-
-### 2. Real payment and phone verification — L, product
+### 1. Real payment and phone verification — L, product
 
 Payment is simulated and there are no accounts, so nothing makes a booking cost anything. A
 script can reserve every bay (threat model T3). These two are one ticket because either
@@ -70,7 +53,7 @@ way to reach it.
 has its failure cases implemented (wrong code, expired, resend), and no endpoint lets a
 phone number enumerate bookings — that would reintroduce exactly what ADR-002 avoids.
 
-### 3. Real supply — L, product and non-technical
+### 2. Real supply — L, product and non-technical
 
 Every spot is invented. The booking engine, pricing and the guarantee are real; the supply
 is not, because listing a real business without its consent isn't ours to do.
@@ -85,7 +68,7 @@ themselves, and one real driver has parked in it.
 
 ---
 
-### 4. Move the deployment to the region its users are in — S, performance
+### 3. Move the deployment to the region its users are in — S, performance
 
 Requests enter Vercel's Mumbai edge and are then executed in Washington DC
 (`x-vercel-id: bom1::iad1::…`), so roughly 230-250 ms of every response is geography. All
@@ -119,6 +102,10 @@ improvement rather than being assumed to.
   workaround was taken: downgrading TypeScript to satisfy a linter, or forcing an unmet peer
   dependency that would then break `npm ci` on a fresh clone. `npm run typecheck` runs in CI
   and is stricter about types, but nothing is checking the react-hooks or Next-specific rules.
+- **Schedule `scripts/rate-limit-sweep.sh` somewhere real.** It is documented in the
+  runbook as a crontab line, which means it runs on whichever laptop someone remembered to
+  set it up on. A Vercel cron or a GitHub Actions schedule would be honest; a crontab on a
+  developer machine is not infrastructure.
 - **Watch `npm run verify` on a fresh clone** whenever setup changes. Two separate bugs got
   in by being invisible on a machine that already worked.
 
@@ -127,7 +114,7 @@ improvement rather than being assumed to.
 - **Don't add a "find my bookings by phone" endpoint.** It is the most obvious feature
   request here and it is the enumeration hole the whole capability model exists to avoid
   (ADR-002). If lost codes become a real problem, solve it with verified phone + payment
-  (ticket 2), not with a lookup.
+  (ticket 1), not with a lookup.
 - **Don't relax the exclusion constraint to fix a conflict.** If a booking is wrongly
   blocked, the window or the bay is wrong, not the constraint.
 - **Don't delete bookings.** Set `status = 'cancelled'`; the record is the audit trail.

@@ -37,6 +37,21 @@ It raises at most one open issue at a time, so a flapping endpoint does not crea
 
 ---
 
+## Scheduled jobs
+
+```
+0 * * * * cd /path/to/parkmitra && ./scripts/rate-limit-sweep.sh
+```
+
+Deletes rate-limit counters older than an hour. The limiter only ever reads the current
+minute, so everything older is dead weight — one row per IP per minute, for ever, if nobody
+sweeps. It is not urgent on any single day and it is not optional over months.
+
+Not running it does not break the limiter. It slowly fills the database the limiter exists
+to protect, which is a worse failure than the one being prevented.
+
+---
+
 ## Symptom → cause → fix
 
 ### `/api/health` returns 503 with `booking_guarantee: false`
