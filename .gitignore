@@ -22,3 +22,8 @@ test-results/
 # niha local-only state (the tool writes its own .niha/.gitignore too)
 .niha/ledger.jsonl
 .niha/settings.local.json
+
+# niha regenerates this unrequested workflow on every run; it also cannot be
+# pushed without the workflow OAuth scope. Kept out of the repo deliberately.
+# A copy is preserved as evidence in field/artifacts/.
+.github/
