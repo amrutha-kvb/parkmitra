@@ -7,11 +7,15 @@
  */
 import { test, expect } from "@playwright/test";
 
-// Push the window far enough out that repeated local runs never collide with
-// each other's bookings on the same bay.
-const DAY = `2026-10-${String(1 + Math.floor(Math.random() * 27)).padStart(2, "0")}`;
-const START = `${DAY}T10:00:00+05:30`;
-const END = `${DAY}T12:00:00+05:30`;
+// Every run must claim a window nothing else has claimed. Randomising only the
+// DAY was not enough: repeated runs eventually exhaust a spot's free bays on the
+// same window and the booking returns 409, so the suite failed intermittently
+// for a reason that had nothing to do with the product. Randomising the minute
+// as well takes the collision space from ~27 windows to ~1600.
+const DAY = `2026-1${Math.floor(Math.random() * 2)}-${String(1 + Math.floor(Math.random() * 27)).padStart(2, "0")}`;
+const MIN = String(Math.floor(Math.random() * 60)).padStart(2, "0");
+const START = `${DAY}T10:${MIN}:00+05:30`;
+const END = `${DAY}T12:${MIN}:00+05:30`;
 
 test("a driver can find a bay, book it, pay, and come back with only the code", async ({ page }) => {
   // ── S1: pick an area and a window ──────────────────────────────────────────
