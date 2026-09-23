@@ -107,5 +107,19 @@ export function nextHalfHour(): string {
 
 /** Formats a Date to an ISO-8601 datetime string truncated to minute precision. */
 export function toISO(d: Date): string {
-  return d.toISOString().slice(0, 16);
+  // Must preserve the LOCAL offset. toISOString() converts to UTC, and slicing
+  // off the trailing Z leaves a naive string that everything downstream then
+  // reads as local — so in IST (UTC+5:30) a 6:00 pm pick travelled as 12:30 and
+  // every booking silently moved five and a half hours. Build the string from
+  // local components and append the real offset instead.
+  const pad = (n: number) => String(Math.abs(n)).padStart(2, "0");
+  const offsetMinutes = -d.getTimezoneOffset(); // minutes EAST of UTC
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const offset = `${sign}${pad(Math.floor(Math.abs(offsetMinutes) / 60))}:${pad(
+    Math.abs(offsetMinutes) % 60,
+  )}`;
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:00${offset}`
+  );
 }
