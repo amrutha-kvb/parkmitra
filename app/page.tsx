@@ -8,7 +8,9 @@
  *                          fields are shown as animated skeletons; button disabled.
  *   2. Error + Retry     — when the areas fetch fails; time controls remain
  *                          usable (partial failure, per mockup note).
- *   3. Default / ready   — areas loaded, form idle, button enabled once area
+ *   3. Empty            — the fetch succeeded and returned no areas at all.
+ *                        Reachable on a migrated-but-unseeded database.
+ *   4. Default / ready   — areas loaded, form idle, button enabled once area
  *                          and duration are selected.
  *   4. Validation error  — inline messages per wireframes.md; button disabled.
  *
@@ -352,8 +354,34 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* State 3 & 4: ready — tappable area chips */}
-          {areasStatus === "ready" && (
+          {/* State 3: empty — the request succeeded and there is nothing to show.
+              Distinct from the error state above, and it is reachable: a database
+              that has been migrated but not seeded returns 200 with an empty list.
+              Without this branch the user gets a form with no chips, a disabled
+              button and no explanation, which reads as the page being broken. */}
+          {areasStatus === "ready" && areas.length === 0 && (
+            <div
+              className="notice"
+              role="status"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+                alignItems: "flex-start",
+              }}
+            >
+              <strong style={{ color: "var(--ink-900)" }}>
+                No areas are available yet
+              </strong>
+              <span>
+                parkmitra has not been set up for any area in this city. Nothing is
+                broken — there is simply nothing to book here yet.
+              </span>
+            </div>
+          )}
+
+          {/* State 4 & 5: ready with results — tappable area chips */}
+          {areasStatus === "ready" && areas.length > 0 && (
             <div
               className="chip-group"
               role="listbox"

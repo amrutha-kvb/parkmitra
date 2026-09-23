@@ -199,6 +199,25 @@ screen is public.</p>
 </div>
 
 <!-- ══════════════════ S2 ══════════════════ -->
+
+  <!-- Added after the phase-7 four-states audit. design/states.md is the
+       register; this is the one state that was neither mocked nor built. -->
+  <h3>S1 — empty: no areas configured</h3>
+  <p class="note">
+    Reached when <code>/api/areas</code> succeeds and returns an empty list — a
+    database that has been migrated but not seeded, which is what every fresh
+    deployment looks like before <code>db-setup.sh</code> runs. Distinct from the
+    error state: nothing failed. Before this existed the screen rendered a form
+    with no chips and a disabled button, which reads as broken rather than empty.
+  </p>
+  <div class="screen">
+    <div class="panel" role="status">
+      <strong>No areas are available yet</strong>
+      <p>parkmitra has not been set up for any area in this city. Nothing is
+         broken — there is simply nothing to book here yet.</p>
+    </div>
+  </div>
+
 <h2>S2 — Results</h2>
 <p class="note">The empty state is the important one — it is the state that decides whether
 the secondary persona ever opens the product again, so it offers the two things that
