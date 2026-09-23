@@ -17,7 +17,7 @@ away; somebody just has to introduce you to it.
 
 ## Why it exists
 
-Because on 2026-09-21 there was a car, a lane too narrow to park in without blocking it,
+Because on 2026-09-11 there was a car, a lane too narrow to park in without blocking it,
 a building with no parking, and — three minutes away — a gym with an empty lot. The space
 was there the whole time. There was no way to find it or ask for it.
 

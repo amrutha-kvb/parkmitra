@@ -6,7 +6,7 @@ and it is worth being able to compare it with what I believed by Gate 2.
 
 ## Where this came from
 
-This is not a problem I went looking for. On the night of 2026-09-21 we had a car and
+This is not a problem I went looking for. On the night of 2026-09-11 we had a car and
 nowhere to put it. The lane we live on is narrow enough that a parked car blocks it for
 everyone else, and the building has no parking of its own. We ended up leaving the car at
 the gym I go to, because the gym has a lot and at that hour it was empty.
