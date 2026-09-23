@@ -6,7 +6,7 @@
 
 ## Summary
 
-Fifteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+Sixteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
 verbatim output. Three fix PRs raised. Four further candidates were investigated and
 **discarded rather than banked**, including two of my own measurement errors, and one filed
 finding was **publicly corrected** when better evidence contradicted part of it.
@@ -37,6 +37,7 @@ another 28 days. Most of what follows flows from those two facts.
 | F-17 | S2 | [#1036](https://github.com/niha-and-co/ai-platform/issues/1036) | `export --json` is documented as shorthand for `--format json`, emits markdown, exits 0 |
 | F-18 | S2 | [#1037](https://github.com/niha-and-co/ai-platform/issues/1037) | **`export` reports "Total time 2s" for a 41-minute session**, contradicting its own timestamps four lines above |
 | F-19 | **S1** | [#1038](https://github.com/niha-and-co/ai-platform/issues/1038) | **23 of 36 turns failed; all 36 were counted and the session exported as "Outcome: completed"** |
+| F-20 | S2 | [#1039](https://github.com/niha-and-co/ai-platform/issues/1039) | `rules list` validates two filters and silently ignores two others, all exiting 0 |
 
 Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
 [#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
