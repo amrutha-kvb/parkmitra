@@ -775,3 +775,99 @@ Disposition: FILED (#1035)
 Tier: T2 — worked around in this repository by gating the whole job on a repository
 variable, so it skips visibly rather than failing red. Not fixable from outside the org:
 publishing the action is a decision for whoever owns it.
+
+
+---
+
+### F-17  `niha export --json` is documented as a shorthand for `--format json` but emits markdown, and exits 0
+Severity:    S2
+Area:        CLI — export, flag handling
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       8, ship — reading a long session's cost back for the B8 protocol
+Steps:
+  1. niha export <session-id> --json | head -2
+  2. niha export <session-id> --format json | head -2     # control, same session
+  3. niha export <session-id> --json | jq .governance     # the form its own --help shows
+Expected:    `--json` produces JSON. Its own help says "Shorthand for --format json", and its
+             examples show `--format json | jq .governance`.
+Actual:
+```console
+$ niha export 7d425a0b --json | head -2
+# Session export — Read docs/handover.md and field/securit…
+
+$ echo $?
+0
+
+$ niha export 7d425a0b --format json | head -2
+{
+  "schema_version": 1,
+
+$ niha export 7d425a0b --json | jq .governance
+jq: parse error: Invalid numeric literal at line 1, column 2
+$ echo $?
+5
+```
+Analysis:    The two documented spellings of one option disagree, and the failing one is the
+             shorthand. It exits 0, so a script cannot detect the failure from the CLI — it
+             surfaces further down the pipe as a jq error, which points at the wrong tool.
+             Same shape as F-08 (#1020) but on a different command, so filed separately: the
+             pattern repeating across unrelated commands is the more useful signal.
+Suggested:   Map `--json` onto `--format json` at parse time and assert the two spellings
+             produce byte-identical output. A shorthand that does not do what it is short
+             for is worse than no shorthand, because nothing prompts the user to doubt it.
+Disposition: FILED (#1036)
+
+Tier: T2 — a workaround exists (`--format json`), so recorded and characterised.
+
+---
+
+### F-18  `niha export` reports "Total time 2s" for a 41-minute session, contradicting its own timestamps
+Severity:    S2
+Area:        CLI — export, session metrics
+Scenario:    B8 — cost and token readout at the end of a long session
+Frequency:   every time (2/2, two different sessions)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       8, ship
+Steps:
+  1. Run a long session. This one: 40 turns over ~41 minutes.
+  2. niha export <session-id>
+  3. Read "Total time" against "Started" and "Last updated" in the same table.
+Expected:    a duration that matches the session's own timestamps, or a field name that says
+             what it actually measures.
+Actual:
+```console
+$ niha export 7d425a0b
+| Started      | 2026-09-23T16:09:50.944Z |
+| Last updated | 2026-09-23T16:50:42.406Z |
+| Turns        | 40                       |
+| Total cost   | $0.8505                  |
+| Total time   | 2s                       |
+
+$ python3 -c "from datetime import datetime as d; print((d.fromisoformat('2026-09-23T16:50:42.406+00:00')-d.fromisoformat('2026-09-23T16:09:50.944+00:00')).total_seconds())"
+2451.462
+```
+Analysis:    2451 seconds reported as 2 — wrong by three orders of magnitude, in the one row
+             a reader cannot check without doing the subtraction by hand. Independently
+             corroborated: the harness recorded 40/40 turns, mean wall-clock latency 62s,
+             slowest turn 234s. No reading of "time" makes 2s correct.
+
+             It matters more than a normal metrics bug because of what the field is for.
+             Scenario B8 asks every engineer to report cost and duration per long session and
+             to say whether long sessions cost disproportionately more. That is cost divided
+             by duration. `export` supplies both; the cost is right and the duration is not,
+             so the derived figure the programme asks for is wrong for everyone who reports
+             it. Found by trying to do exactly that.
+
+             Same shape as F-14 (#1032): a summary line contradicting data the command has
+             already printed.
+Suggested:   Compute the row from `updatedAt - startedAt`, or rename it to what it measures —
+             if it is render time or one API round trip, it does not belong in a session
+             summary. A test asserting the row is consistent with the two timestamps beside
+             it is cheap and would have caught this. `--format json` carries no duration
+             field at all, so there is currently no correct machine-readable source either.
+Disposition: FILED (#1037)
+
+Tier: T2 — the duration is recoverable by hand from the two timestamps, so recorded rather
+than blocking.
