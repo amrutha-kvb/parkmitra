@@ -5,7 +5,9 @@
 Malls, apartment blocks and gyms have bays sitting empty for hours. parkmitra finds one
 near where you are going and holds it by the hour.
 
-🔗 **Live:** https://parkmitra-nu.vercel.app
+🔗 **Live:** https://parkmitra-nu.vercel.app  ·  **v1.0.0**  ·  [changelog](CHANGELOG.md)
+
+[![CI](https://github.com/amrutha-kvb/parkmitra/actions/workflows/ci.yml/badge.svg)](https://github.com/amrutha-kvb/parkmitra/actions/workflows/ci.yml)
 
 ---
 
@@ -150,6 +152,7 @@ discovery/        problem, personas, metrics, landscape, charter, assumptions
 design/           architecture, ADRs, data model, OpenAPI contract, threat model,
                   wireframes, mockups, accessibility baseline
 plan/             scope cut, backlog, sequence, Definition of Done, test strategy, risks
+docs/             runbook, handover, retrospective, measured performance, effort
 field/            findings, session logs, tool switches — the build's field report
 ```
 
@@ -192,6 +195,26 @@ Each of these is a decision, recorded with its reason in
   interface says so rather than hiding it behind a spinner.
 - English only — a real limitation in Hyderabad.
 - Accessibility is audited by keyboard and automated checks, not on a screen reader.
+
+---
+
+## If you are picking this up
+
+Read in this order. Each is short and none repeats another.
+
+| | |
+|---|---|
+| [`docs/handover.md`](docs/handover.md) | What to do next, and what not to do. Start here. |
+| [`design/adr/ADR-001…`](design/adr/) | Why the booking guarantee lives in the database |
+| [`docs/runbook.md`](docs/runbook.md) | What to do when it breaks, with measured recovery times |
+| [`field/security-review.md`](field/security-review.md) | Eight controls tested; two gaps stated |
+| [`docs/performance.md`](docs/performance.md) | What was measured, and the one number that is not proven |
+| [`docs/retrospective.md`](docs/retrospective.md) | What went wrong, including the parts that are mine |
+
+The one thing to know before changing anything: **no-double-booking is enforced by a
+Postgres exclusion constraint, not by application code.** If you find yourself checking
+availability in TypeScript and then inserting, stop — that reads correctly and fails under
+concurrency, which is the only condition that matters.
 
 ---
 
