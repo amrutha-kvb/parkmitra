@@ -68,3 +68,103 @@ quietly dropping:
 - **No testing with assistive technology users.**
 - **English only**, which is a genuine accessibility limitation in Hyderabad.
 - Audited at 390px and desktop widths; not across a device matrix.
+
+---
+
+# Second pass — clause by clause against the baseline (2026-09-24)
+
+The first pass was automated: axe across three screens plus keyboard reachability. That
+catches a real subset and it is the subset that catches itself. This pass reads
+[`design/a11y.md`](../design/a11y.md) **clause by clause** and checks each one against the
+code, which is what the quality bar means by *"accessibility audited against the baseline"*.
+
+It found two things automation could not, and one thing wrong with my own testing.
+
+## The clauses
+
+| Clause | Verdict | Evidence |
+|---|---|---|
+| Contrast ≥ 4.5:1, ≥ 3:1 for borders | **pass** | axe contrast rules across S1/S2/S6 |
+| Colour never the only carrier of meaning | **pass** | every status carries a word; error states pair `⚠` with text |
+| Full keyboard reach, logical order | **pass** | `the whole booking form is reachable by keyboard alone` |
+| No positive `tabindex` | **pass** | none in `app/` |
+| Visible focus ring, never bare `outline: none` | **pass, wording corrected** | three `outline: none` rules, each paired with `box-shadow: var(--focus-ring)` on the same rule. The baseline's absolute wording was wrong, not the code |
+| Map is not a keyboard trap | **pass, baseline corrected** | see below |
+| One `<main>`, `<h1>` per screen | **pass** | axe landmark rules |
+| Real `<label>`, never placeholder-as-label | **pass** | no placeholder-only inputs |
+| Errors tied by `aria-describedby` + live region | **pass** | 5 files use `aria-describedby`, 6 carry a live region |
+| Loading announces via `aria-busy` | **pass** | 6 screens |
+| 44×44px targets | **pass** | `--tap-min` used in 8 rules |
+| Inputs ≥ 16px, correct `inputmode`/`autocomplete` | **pass** | `tel` on the phone field |
+| `lang="en"` | **pass** | `app/layout.tsx` |
+| **`prefers-reduced-motion` removes transitions and the shimmer** | **FAIL → fixed** | see below |
+| Nothing auto-plays or moves without user action | **pass** | the shimmer was the only motion |
+
+## The gap: reduced motion was specified and never built
+
+`design/a11y.md` has required this since the baseline was written:
+
+> `prefers-reduced-motion: reduce` removes all transitions and any skeleton shimmer.
+
+**There was no `prefers-reduced-motion` rule anywhere in the codebase.** Meanwhile
+`.skeleton` carried `animation: skeleton-pulse 1.4s ease-in-out infinite` — an *infinite*
+animation, which is precisely what triggers discomfort for people with vestibular disorders,
+and the animation most likely to be on screen while someone is waiting.
+
+Automated checks did not catch it and could not have: nothing is wrong with the rendered
+page. The media query is simply absent, and axe does not emulate user preferences. Only
+reading the baseline against the code finds this class of defect.
+
+Now implemented in `app/globals.css`, with `animation: none` on the skeleton rather than a
+near-zero duration — a 0.01ms infinite animation still fires events forever and still
+repaints.
+
+## The baseline was wrong about the map, and the baseline was changed
+
+The document specified the map as `aria-hidden`. In practice Leaflet renders markers as
+focusable `role="button"` images *and* makes the container focusable, so `aria-hidden`
+produced an `aria-hidden-focus` violation — focusable content inside hidden content. The
+phase 7 fix made it a labelled `role="region"` with `keyboard: false` on the markers.
+
+**The code was right and the document was stale**, so the document changed. Recording the
+direction matters: a baseline that is quietly edited to match whatever was built is not a
+baseline. This one was edited because the specified approach was tested and found to be
+worse.
+
+## What I got wrong, and it is the most useful thing here
+
+The first version of the reduced-motion test was **behavioural**: open a context with
+`reducedMotion: "reduce"`, find the skeleton, assert its computed `animationName` is `none`.
+It passed. It looked like exactly the right test.
+
+It was worthless. Playwright's `reducedMotion` emulation makes **Chromium itself** suppress
+animations, at the browser level, regardless of the page's CSS. Verified by deleting the
+media query, confirming the built stylesheet contained zero `prefers-reduced-motion` rules,
+and watching both assertions stay green.
+
+```console
+$ # built CSS with the media query deleted
+reduced-motion rules in built css: 0
+  ✓ the skeleton shimmer stops when the user asks for reduced motion
+  ✓ transitions are suppressed when the user asks for reduced motion
+```
+
+**A test that cannot fail is worse than no test, because it is counted.**
+
+The replacement asserts the served stylesheet instead: that it contains a
+`prefers-reduced-motion` rule and that the rule reaches `.skeleton`. It is weaker evidence —
+it proves the rule exists, not that a browser honours it — and it is written down as weaker.
+It does fail when the rule is removed, which the first one never would have.
+
+I also nearly missed all of this: an earlier falsification attempt ran against a **stale
+build**, because `npm run build > /dev/null 2>&1` swallowed the output and I restarted the
+server without checking the build had succeeded. Same family as the measurement errors in
+`field/report.md` — redirecting output and then trusting what came back.
+
+## Still not done
+
+- **No screen-reader testing on a real device.** Unchanged from the first pass, and still the
+  largest gap. VoiceOver and NVDA disagree with each other and with axe.
+- **The map is still not usable without sight.** It is labelled and out of the tab order, and
+  every spot it shows is in the list beneath it, which is the mitigation rather than a fix.
+- **English only.**

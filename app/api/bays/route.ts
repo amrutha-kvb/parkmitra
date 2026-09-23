@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "../../../lib/db";
+import { rateLimitGuard } from "../../../lib/rate-limit-guard";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the OpenAPI contract shape (ARCH-002).
@@ -96,6 +97,12 @@ const FREE_BAYS_SQL = `
 export async function GET(
   request: NextRequest,
 ): Promise<NextResponse<BaysResponse | ErrorResponse>> {
+  // Rate limit before any database work. Scope 'bays' has its own
+  // budget so ordinary use of one endpoint cannot lock a visitor out of
+  // another (see lib/rate-limit.ts SCOPES).
+  const limited = await rateLimitGuard<BaysResponse | ErrorResponse>(request, "bays");
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
 
   // -------------------------------------------------------------------------

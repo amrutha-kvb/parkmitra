@@ -53,12 +53,20 @@ window boundary; this is inherent and irrelevant at this keyspace size. IP-based
 limiting does not stop distributed attacks, but even a million IPs × 20 requests/min
 cannot feasibly guess a valid code.
 
-### Booking spam (T3)
+### Booking spam (T3) — now mitigated, still not closed
 
-Also unfixed, and already declared in the threat model. With no accounts and no real
-payment, nothing makes a booking cost anything, so a script could reserve every bay. The
-real fix is OTP plus real payment — the pair named in ADR-002 as the first thing to add.
-Seeded, demo-scale data limits the blast radius for now.
+`POST /api/bookings` had **no rate limiting at all** until 2026-09-24, which made the one
+endpoint that costs something real the least protected in the product. It is now limited to
+**10 per minute per IP**, the tightest budget of any scope.
+
+That is a speed bump, not a barrier. With no accounts and no real payment, nothing makes a
+booking *cost* anything, and an attacker with a handful of addresses still reserves bays
+faster than anyone releases them. The real fix is payment plus phone verification — the pair
+named in ADR-002 as the first thing to add, and handover ticket 2.
+
+**Mitigated, not closed**, and the threat model now says so in those words.
+
+Full endpoint-by-endpoint evidence is in [`docs/endpoint-audit.md`](../docs/endpoint-audit.md).
 
 ---
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchAvailability } from "../../../lib/availability";
 import pool from "../../../lib/db";
+import { rateLimitGuard } from "../../../lib/rate-limit-guard";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the OpenAPI contract exactly (ARCH-002).
@@ -64,6 +65,12 @@ function parseTimestamp(value: string | null): Date | null {
 export async function GET(
   request: NextRequest,
 ): Promise<NextResponse<AvailabilityResponse | ErrorResponse>> {
+  // Rate limit before any database work. Scope 'search' has its own
+  // budget so ordinary use of one endpoint cannot lock a visitor out of
+  // another (see lib/rate-limit.ts SCOPES).
+  const limited = await rateLimitGuard<AvailabilityResponse | ErrorResponse>(request, "search");
+  if (limited) return limited;
+
   const { searchParams } = request.nextUrl;
 
   // ------------------------------------------------------------------

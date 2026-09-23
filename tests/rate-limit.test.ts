@@ -102,3 +102,64 @@ describe("rate limiting", () => {
     expect(result.retryAfterSeconds).toBe(0);
   });
 });
+
+/**
+ * Per-scope buckets.
+ *
+ * Written BEFORE the implementation, and committed failing on purpose, because
+ * the quality bar this project is held to asks for the failing commit to be
+ * visible rather than asserted.
+ *
+ * Why this is needed: the limiter keyed on ip_addr alone, so every endpoint
+ * that used it shared ONE bucket per IP. With only the booking lookup wired up
+ * that was invisible. The moment a second endpoint calls it — and searching,
+ * listing bays and creating a booking all should be limited — an ordinary user
+ * browsing normally would exhaust a single 20/minute allowance across unrelated
+ * actions and be locked out of the product by its own defences.
+ *
+ * A limiter that throttles legitimate use is not a stricter limiter, it is a
+ * broken one.
+ */
+describe("per-scope rate limit buckets", () => {
+  const IP = "203.0.113.77";
+
+  beforeEach(async () => {
+    await pool.query("DELETE FROM rate_limit_hits WHERE ip_addr = $1::inet", [IP]);
+  });
+
+  it("exhausting one scope does not affect another", async () => {
+    // Fill the 'search' bucket right up to its limit.
+    for (let i = 0; i < 5; i += 1) {
+      const r = await checkRateLimit(IP, { scope: "search", limit: 5 });
+      expect(r.allowed).toBe(true);
+    }
+    const overSearch = await checkRateLimit(IP, { scope: "search", limit: 5 });
+    expect(overSearch.allowed).toBe(false);
+
+    // A different scope, same IP, must be untouched.
+    const otherScope = await checkRateLimit(IP, { scope: "booking", limit: 5 });
+    expect(otherScope.allowed).toBe(true);
+  });
+
+  it("each scope enforces its own limit independently", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await checkRateLimit(IP, { scope: "tight", limit: 3 });
+    }
+    expect((await checkRateLimit(IP, { scope: "tight", limit: 3 })).allowed).toBe(false);
+
+    // A generous scope still allows well past the tight one's limit.
+    for (let i = 0; i < 10; i += 1) {
+      expect((await checkRateLimit(IP, { scope: "loose", limit: 50 })).allowed).toBe(true);
+    }
+  });
+
+  it("concurrent requests in one scope cannot exceed that scope's limit", async () => {
+    const results = await Promise.allSettled(
+      Array.from({ length: 30 }, () => checkRateLimit(IP, { scope: "race", limit: 20 })),
+    );
+    const allowed = results.filter(
+      (r) => r.status === "fulfilled" && r.value.allowed,
+    ).length;
+    expect(allowed).toBe(20);
+  });
+});

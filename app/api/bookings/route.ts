@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import pool from "../../../lib/db";
 import { computeAmountPaise } from "../../../lib/money";
+import { rateLimitGuard } from "../../../lib/rate-limit-guard";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the OpenAPI contract exactly (ARCH-002).
@@ -313,6 +314,12 @@ const INSERT_BOOKING_SQL = `
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<BookingResponse | ErrorResponse>> {
+  // Rate limit before any database work. Scope 'booking' has its own
+  // budget so ordinary use of one endpoint cannot lock a visitor out of
+  // another (see lib/rate-limit.ts SCOPES).
+  const limited = await rateLimitGuard<BookingResponse | ErrorResponse>(request, "booking");
+  if (limited) return limited;
+
   // -------------------------------------------------------------------------
   // 1. Parse the JSON body.
   //    Any `amount` key that arrives in the body is never read (ADR-003).

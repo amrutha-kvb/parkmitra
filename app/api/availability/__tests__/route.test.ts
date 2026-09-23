@@ -32,6 +32,15 @@ const { mockSearchAvailability, mockQuery } = vi.hoisted(() => ({
   mockQuery: vi.fn(),
 }));
 
+// The rate-limit guard talks to Postgres, and this suite mocks the pool — so
+// without this the guard throws, fails open (correctly), and its attempted
+// query pollutes the call counts these tests assert on. The guard has its own
+// tests in tests/rate-limit.test.ts; here it is not the subject.
+vi.mock("../../../../lib/rate-limit-guard", () => ({
+  rateLimitGuard: vi.fn(async () => null),
+  clientIp: vi.fn(() => "127.0.0.1"),
+}));
+
 vi.mock("../../../../lib/availability", () => ({
   searchAvailability: mockSearchAvailability,
 }));
