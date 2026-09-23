@@ -955,3 +955,49 @@ count surfaces as findings when it suits the total. Six surfaces now; still one 
 `check` raises that issue's severity: a pipeline running `niha check --json | jq '.violations'`
 gets unparseable text and exit 0, which is indistinguishable from a clean run. Same shape as
 F-13 — a governance product reporting success while reporting nothing.
+
+
+---
+
+### F-21  `niha status` reports 19 governance observations; `niha trace --last` says none exist and gives a false reason
+Severity:    S2
+Area:        CLI — trace, governance observability
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run — inspecting governance decisions for the handover
+Steps:
+  1. niha status
+  2. niha trace --last
+  3. wc -l < .niha/ledger.jsonl
+Expected:    the command whose purpose is "Governance decision trace (X-ray)" either shows
+             the recorded decisions or explains why it cannot.
+Actual:
+```console
+$ niha status
+  Posture:   advisory (observe-only pilot — nudges + logs, never blocks)
+  Workspace: local-only (offline or not yet provisioned)
+  Ledger:    19 observations logged  ·  .niha/ledger.jsonl
+
+$ niha trace --last
+No traces yet — traces appear once agents run governed actions.
+
+$ wc -l < .niha/ledger.jsonl
+19
+```
+Analysis:    Two commands, one CLI, one workspace, one moment, disagreeing about whether any
+             governance decision exists.
+
+             The reason given is what costs time. "Traces appear once agents run governed
+             actions" is a claim about cause and it is false — 53 model turns with tool
+             calls, a pre-commit hook on every commit, 19 ledger entries. It sends the reader
+             to do what they have already done.
+
+             `status` prints the real reason two lines earlier: the workspace is local-only.
+             The tool knows; `trace` does not say it.
+Suggested:   Say what `status` already knows, or let `trace` read the local ledger when the
+             workspace is local-only — the data is on disk in a documented format and
+             showing it is the command's entire purpose.
+Disposition: FILED (#1040)
+
+Tier: T2 — the ledger is readable directly, so recorded rather than blocking.
