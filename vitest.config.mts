@@ -17,6 +17,13 @@ export default defineConfig({
     // concurrency test and the booking guarantee appears to fail when it has
     // not. A flaky test on the one guarantee this product sells is worse than a
     // slower suite.
+    //
+    // This protects files within a run. It does NOT protect against two runs
+    // at once against the same database — see "Running the tests" in the
+    // README. That needs a second database, not a second setting; an advisory
+    // lock was tried and rejected, because DATABASE_URL points at a pooled
+    // endpoint where session-level locks are not reliable, and the failure
+    // mode was an indefinite hang rather than an honest error.
     fileParallelism: false,
   },
 });

@@ -53,3 +53,30 @@ numbered findings as out of scope (it is `src/web`, and the challenge scopes fin
 no model turn completes (F-03). Fix work on the CLI repository is also a separate clock
 from the product build by the programme's own rule ("two clocks, two commit histories"),
 and is logged separately here.
+
+---
+
+## 2026-09-23 — investigating and fixing F-15 (`niha ci agent init`)
+
+**Task:** reproducing the broken generated workflow, verifying that `@v1` resolves to
+nothing, patching `src/cli-ink/src/commands/ci-agent.ts`, and preparing PR #1034.
+
+**Switched to:** Claude Code, plus ordinary local tooling (`git`, `gh`, `npx vitest`,
+`npm run build`).
+
+**Why:** two separate reasons, both worth stating plainly.
+
+1. **Fix work on the CLI repository is a separate clock** by the programme's own rule
+   ("two clocks, two commit histories"), as with the 22 September entry above.
+2. **niha could not have been asked in any case.** The credential expired mid-session and
+   every model-backed call returns `Not authorized` (F-13, F-14). The governance hook
+   confirms it on each commit: `niha: governance check skipped (commit allowed) — Not
+   authorized to evaluate rules`. The re-login is a device-code flow awaiting a human.
+
+**Worth recording:** F-15 was found *because* of this switch, not in spite of it. I went
+looking for why parkmitra had no CI runs, found `.github/workflows/niha-governance.yml`
+uncommitted, and read it properly before pushing it. Had the file been committed
+unexamined on the day it was generated, the finding would have surfaced as a confusing red
+check rather than as a diagnosis.
+
+**Reversal condition:** product work returns to niha the moment the credential is valid.

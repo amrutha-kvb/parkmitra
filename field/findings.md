@@ -485,6 +485,157 @@ Tier: T3 — cosmetic in effect, recorded rather than fixed mid-build.
 
 ---
 
+### F-13  Governance stops enforcing and the pre-commit hook silently allows commits: "Not authorized to evaluate rules" for a workspace niha itself provisioned
+Severity:    S2
+Area:        CLI — check / hooks / workspace authorisation
+Scenario:    none
+Frequency:   every time once it starts (6/6). It worked earlier in the same session on the same machine and account, then stopped.
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7, org AI Challenge Q3 2026, role capability_builder, trust L1
+Phase:       9, run
+Steps:
+  1. niha check                      # earlier the same session: PASS, 20 rules
+  2. niha check                      # later: not authorized
+  3. niha whoami                     # token still valid
+  4. niha status                     # reports the workspace as not provisioned
+  5. cat .niha/workspace.yaml        # the id from the error is here, written by niha
+  6. git commit                      # observe what the installed hook does
+Expected:    either the rules evaluate, or the failure is explained accurately and the governance hook makes a deliberate, visible decision about whether to allow the commit.
+Actual:
+  Earlier in this session, on this machine and account:
+  $ niha check
+    Governance Check — workspace
+    Passed (20)
+    ✓ 900a941b-f3f8-5333-ab93-8f1b47909a9a Branch protection enabled
+
+  Later, unchanged account, same directory:
+  $ niha check
+  Not authorized to evaluate rules for 42f67bef-192d-4c09-bd04-04c280704073. Run niha login or check your role.
+
+  The suggested remedy does not apply — the session is fine:
+  $ niha whoami
+    Email:     amrutha.korumilli@techatcore.com
+    Role:      capability_builder
+    Token:     valid for 28d 23h
+
+  And niha's own status disagrees that the workspace exists at all:
+  $ niha status
+    Project:   parkmitra (repo)  ·  id amrutha-kvb/parkmitra
+    Workspace: local-only (offline or not yet provisioned)
+
+  But the id in the error is one niha wrote itself:
+  $ cat .niha/workspace.yaml
+  workspace:
+    id: 42f67bef-192d-4c09-bd04-04c280704073
+    name: parkmitra
+
+  The installed pre-commit hook then fails open:
+  $ git commit -m "probe: does the governance hook block or allow?"
+  niha: governance check skipped (commit allowed) — Not authorized to evaluate rules for 42f67bef-192d-4c09-bd04-04c280704073. Run niha login or check your role.
+  [phase-9/run 12afdad] probe: does the governance hook block or allow?
+  $ echo $?
+  0
+
+  Not branch-specific: reproduced on main and on a feature branch.
+Impact:      A governance product silently stops governing. `niha hooks install` sets the
+             hook up as "Runs niha check --ci before every commit", and from this point it
+             runs nothing — every commit passes unchecked, including the secret scan and
+             the SQL-concatenation rule, with one grey line of output as the only signal.
+             In a team that installed this hook deliberately, nobody would notice for days.
+             Three things compound. The failure is silent in effect; `status` and `check`
+             disagree about whether the workspace exists; and the remedy offered
+             ("Run niha login or check your role") is wrong, because the token is valid and
+             the role has not changed — which sends the user to re-authenticate for nothing.
+             ~25 minutes establishing that the session was fine, the branch was irrelevant,
+             and the id came from niha's own workspace.yaml.
+Suggested:   Three separate things. (a) Reconcile authorisation with provisioning: if
+             `status` reports a workspace as not provisioned, `check` should not be
+             authorising against its id — and if the id in `.niha/workspace.yaml` is stale
+             or was never registered, say exactly that and offer `niha init --refresh`.
+             (b) Make the hook's failure mode deliberate and configurable: failing open is
+             defensible for a developer's commit, but it should be a stated policy, and
+             loud — the current one-line notice is easy to miss in a normal commit. (c)
+             Stop suggesting `niha login` when the credential is demonstrably valid; it
+             costs the user a re-auth and does not fix anything.
+Disposition: FILED (#1031)
+
+**CORRECTION, 2026-09-23, same day.** Part of this finding was wrong and is withdrawn.
+
+I claimed the credential was valid, and therefore that "Run niha login or check your role"
+was misleading. That was based on incomplete evidence: I filtered `niha whoami` with
+`grep -E 'Email|Role|Token'`, which hid the decisive line. The full output says both
+"Token: valid for 28d 23h" AND "✗ This credential is expired or revoked — the API rejected
+it", and `doctor` had been reporting the rejection all along. The credential really was
+rejected, the authorisation failure was correct, and the remedy offered was right.
+Suggestion (c) is withdrawn.
+
+What stands is the substance: **the pre-commit hook fails open silently.** Every commit
+passed unchecked — secret scan included — with one grey line as the only signal and exit 0.
+Suggestions (a) and (b) are unchanged.
+
+The misleading `whoami` display that caused this error is filed separately as F-14.
+
+Tier: T2 — commits still work, so there is a workaround in the sense that nothing blocks,
+which is exactly the problem. Recorded and characterised rather than fixed mid-build.
+
+---
+
+### F-14  `niha whoami` prints "Token: valid for 28d 23h" directly above "this credential is expired or revoked"
+Severity:    S2
+Area:        auth / whoami
+Scenario:    none
+Frequency:   every time while the credential is rejected (5/5)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. niha login, then work until the credential is rejected server-side
+  2. niha whoami
+  3. niha doctor
+Expected:    one verdict. If the server has rejected the credential, the summary line should not say it is valid for another 28 days.
+Actual:
+  $ niha whoami
+
+    Auth:      JWT token
+    Name:      amrutha.korumilli
+    Email:     amrutha.korumilli@techatcore.com
+    Org:       AI Challenge Q3 2026
+    Role:      capability_builder
+    Trust:     L1
+    Token:     valid for 28d 23h
+    Profile:   niha
+    Store:     keychain "niha" (falls back to /Users/amruthakorumilli/.niha/credentials.json)
+
+    ✗ This credential is expired or revoked - https://api.nihaandco.com/api/v1/auth/me rejected it.
+
+  Both statements are in one output. "valid for 28d 23h" is computed from the JWT's own
+  expiry; the ✗ line is the server's verdict. They are never reconciled.
+
+  doctor is unambiguous by comparison:
+  $ niha doctor
+    ✗ Credentials — JWT rejected by https://api.nihaandco.com/api/v1/auth/me (expired or revoked) — run `niha login`
+Impact:      The line a reader scans for is the one labelled "Token", and it says valid.
+             The contradiction sits four lines below it, after the store path, formatted as
+             a footnote.
+             This cost me real time and, worse, a wrong report. Chasing an authorisation
+             failure elsewhere in the CLI, I checked whoami, saw "valid for 28d 23h", and
+             concluded the session was fine — so I filed a finding criticising a perfectly
+             correct "run niha login" message as bad advice. I had to withdraw that part
+             publicly. The display did not merely slow me down; it produced a false
+             conclusion I then acted on. ~25 minutes, plus the correction.
+             The programme's own worked example is "doctor reports healthy while the session
+             token is expired". This is that shape, in whoami, with the contradiction
+             visible in a single screen of output.
+Suggested:   Let the server's verdict win the summary line. When /auth/me rejects the
+             credential, print "Token: expired or revoked" — or "rejected by the server
+             (local expiry 28d 23h)" if the local figure is worth keeping for debugging —
+             rather than a confident "valid for 28d 23h" that the next line contradicts.
+             The ✗ should lead, not trail.
+Disposition: FILED (#1032)
+
+Tier: T2 — a workaround exists (trust `doctor`, which is unambiguous), so recorded and
+characterised rather than fixed mid-build.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
@@ -492,3 +643,135 @@ de-scoped from the challenge. F-01's advice is defensible general product behavi
 F-04 could not be separated from F-03 while the model was down; F-02 is `src/web`, not
 the CLI; F-03 is an org credit/billing outage the team already knew about, not a defect
 I found. Only findings I can defend on their own evidence are counted above.
+
+---
+
+### F-15  `niha ci agent init` generates a workflow pinned to a ref that does not exist, so CI fails on every PR
+Severity:    S2
+Area:        CLI — ci agent, generated artifacts
+Scenario:    none
+Frequency:   every time (2/2, including a clean empty repo)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. mkdir /tmp/niha-ci-repro && cd /tmp/niha-ci-repro && git init -q .
+  2. niha ci agent init
+  3. grep -n "uses:" .github/workflows/niha-governance.yml
+  4. gh api repos/niha-and-co/ai-platform/git/ref/tags/v1     # control: does the ref exist?
+Expected:    a generated workflow runs. At minimum, the ref it pins resolves.
+Actual:
+  $ niha ci agent init
+  ✓ Created governance CI workflow:
+    /private/tmp/niha-ci-repro/.github/workflows/niha-governance.yml
+
+    Composite action: niha-and-co/ai-platform/.github/actions/niha-ci@v1
+    Fail-on threshold: blocked
+
+  $ grep -n "uses:" .github/workflows/niha-governance.yml
+  22:      - uses: actions/checkout@v4
+  28:        uses: niha-and-co/ai-platform/.github/actions/niha-ci@v1
+
+  $ gh api repos/niha-and-co/ai-platform/git/ref/tags/v1
+  {
+    "message": "Not Found",
+    "documentation_url": "https://docs.github.com/rest/git/refs#get-a-reference",
+    "status": "404"
+  }
+  gh: Not Found (HTTP 404)
+
+  $ gh api repos/niha-and-co/ai-platform/branches/v1
+  {
+    "message": "Branch not found",
+    "status": "404"
+  }
+  gh: Branch not found (HTTP 404)
+
+  $ gh api repos/niha-and-co/ai-platform/git/matching-refs/heads/v1 --jq '.[].ref'
+  (empty)
+
+Analysis:    The action directory itself exists on main, so the path is right and only the
+             ref is wrong. Every published tag is a full three-part version — v1.0.0
+             through v1.2.8 — and there is no floating major. GitHub Actions cannot
+             resolve `@v1`, so the workflow fails at job setup before a single governance
+             check runs.
+
+             The generated file's own comment reads "Bump the @v1 tag when a new release
+             of the action ships", which presents `v1` as an existing convention. It is
+             not one.
+
+             Two things make this worse than a broken default. The failure appears at the
+             job level and names a missing action version, so it reads like the user's own
+             mistake rather than the generator's. And it is a governance product: the
+             visible effect is a red check that never actually checked anything, which is
+             the same shape as F-13 — governance that has silently stopped governing.
+
+             Pinning to "the CLI's own version" would not have worked either. The shipped
+             CLI is 1.3.7 and there is no v1.3.x tag at all, so the newest release tag
+             already lags the published CLI by a minor version.
+Suggested:   Publish and maintain a floating `v1` tag. It is the convention the generated
+             file already promises, it is what `actions/checkout@v4` does one line above
+             it in the same template, and it means the generator never needs touching
+             again. Failing that, pin a tag that exists.
+
+             Separately: a generator that emits a ref is in a position to verify it.
+             Resolving the ref once at generation time would have caught this before it
+             reached any user's repository.
+Disposition: FILED (#1033) · FIX PR (#1034)
+
+Tier: T1 — fixed. The pin is now v1.2.8, the newest published tag, where the action is
+verifiably present. The existing test asserted the literal `@v1` and so passed happily
+while the product was broken; the added test asserts the shape instead, and was confirmed
+to fail against the old constant.
+
+---
+
+### F-16  The generated workflow references a composite action in a PRIVATE repo, so it cannot run in any consumer repository
+Severity:    S2
+Area:        CLI — ci agent, generated artifacts
+Scenario:    none
+Frequency:   every time (1/1 against a real runner; deterministic by construction)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. niha ci agent init
+  2. Commit the generated workflow and push it to a repository you own.
+  3. Open a pull request. Read the Governance Check job.
+Expected:    the generated workflow runs, or the generator says what else is required.
+Actual:
+  X phase-9/run niha Governance amrutha-kvb/parkmitra#16 · 35876662617
+  Triggered via pull_request
+
+  JOBS
+  X Governance Check in 3s
+
+  ANNOTATIONS
+  X Unable to resolve action `niha-and-co/ai-platform`, not found
+
+  $ gh api repos/niha-and-co/ai-platform --jq '{private:.private, visibility:.visibility}'
+  {"private":true,"visibility":"private"}
+
+Analysis:    Separate from F-15, and not fixed by it. F-15 was a ref that does not exist;
+             this is a repository the runner cannot read. A workflow authenticates with its
+             OWN repository's GITHUB_TOKEN, which has no access to a private repo belonging
+             to someone else. My account can read ai-platform interactively — it is how the
+             fix PRs were raised — but the runner does not use my credentials.
+
+             The two compound. Pinning the ref (PR #1034) was necessary and still leaves the
+             generated workflow unable to run for any consumer.
+
+             A trap worth recording separately: a step-level `if:` guard does NOT prevent
+             this. GitHub resolves every `uses:` in a job at job SETUP, before step
+             conditions are evaluated, so the job fails identically. The gate has to be at
+             job level. This cost me one failed run to discover and is not obvious.
+Suggested:   Publish the action — a small public repo, or the Marketplace. That is what
+             `actions/checkout@v4`, one line above it in the same generated file, already
+             does. Alternatively ship the logic in the CLI and have the workflow call
+             `npx @niha-and-co/niha ci run`, since the workflow already installs the CLI in
+             the preceding step. At minimum, say so: the command prints three "Next steps"
+             and none of them mentions that the workflow cannot resolve its action outside
+             this organisation.
+Disposition: FILED (#1035)
+
+Tier: T2 — worked around in this repository by gating the whole job on a repository
+variable, so it skips visibly rather than failing red. Not fixable from outside the org:
+publishing the action is a decision for whoever owns it.

@@ -5,7 +5,9 @@
 Malls, apartment blocks and gyms have bays sitting empty for hours. parkmitra finds one
 near where you are going and holds it by the hour.
 
-🔗 **Live:** https://parkmitra-9vqz8xfx7-kamrutha4774gmailcoms-projects.vercel.app
+🔗 **Live:** https://parkmitra-nu.vercel.app  ·  **v1.0.0**  ·  [changelog](CHANGELOG.md)
+
+[![CI](https://github.com/amrutha-kvb/parkmitra/actions/workflows/ci.yml/badge.svg)](https://github.com/amrutha-kvb/parkmitra/actions/workflows/ci.yml)
 
 ---
 
@@ -81,8 +83,17 @@ npm run verify        # typecheck + unit/integration tests + end-to-end
 The e2e suite can be pointed at any deployment:
 
 ```bash
-PLAYWRIGHT_BASE_URL=https://your-deployment.vercel.app npm run test:e2e
+PLAYWRIGHT_BASE_URL=https://parkmitra-nu.vercel.app npm run test:e2e
 ```
+
+**One run at a time per database.** The suites talk to a real Postgres and several of them
+truncate `bookings`, so two concurrent runs against the same `DATABASE_URL` will wipe each
+other's rows mid-assertion. The symptom is alarming and misleading — the concurrency test
+reports that more than one booking won the same bay, which is the one thing this product
+guarantees. The constraint is fine; the two runs are not.
+
+If you need genuine parallel runs, give each one its own database. CI does exactly that: a
+dedicated Postgres service container per job.
 
 ---
 
@@ -141,6 +152,7 @@ discovery/        problem, personas, metrics, landscape, charter, assumptions
 design/           architecture, ADRs, data model, OpenAPI contract, threat model,
                   wireframes, mockups, accessibility baseline
 plan/             scope cut, backlog, sequence, Definition of Done, test strategy, risks
+docs/             runbook, handover, retrospective, measured performance, effort
 field/            findings, session logs, tool switches — the build's field report
 ```
 
@@ -183,6 +195,30 @@ Each of these is a decision, recorded with its reason in
   interface says so rather than hiding it behind a spinner.
 - English only — a real limitation in Hyderabad.
 - Accessibility is audited by keyboard and automated checks, not on a screen reader.
+- **No linter.** Next 16 removed `next lint` and ESLint cannot parse this project's
+  TypeScript — typescript-eslint does not support TS 7 yet. `npm run typecheck` runs in CI
+  and is stricter about types, but the react-hooks and Next-specific rules are unchecked.
+  Recorded rather than papered over with a lint that only reads config files.
+
+---
+
+## If you are picking this up
+
+Read in this order. Each is short and none repeats another.
+
+| | |
+|---|---|
+| [`docs/handover.md`](docs/handover.md) | What to do next, and what not to do. Start here. |
+| [`design/adr/ADR-001…`](design/adr/) | Why the booking guarantee lives in the database |
+| [`docs/runbook.md`](docs/runbook.md) | What to do when it breaks, with measured recovery times |
+| [`field/security-review.md`](field/security-review.md) | Eight controls tested; two gaps stated |
+| [`docs/performance.md`](docs/performance.md) | What was measured, and the one number that is not proven |
+| [`docs/retrospective.md`](docs/retrospective.md) | What went wrong, including the parts that are mine |
+
+The one thing to know before changing anything: **no-double-booking is enforced by a
+Postgres exclusion constraint, not by application code.** If you find yourself checking
+availability in TypeScript and then inserting, stop — that reads correctly and fails under
+concurrency, which is the only condition that matters.
 
 ---
 
