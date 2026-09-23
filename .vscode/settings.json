@@ -1,0 +1,18 @@
+{
+  "// note": "Keeps node_modules and build output out of the explorer, search and the file watcher. Git already ignores them; this is purely so the editor stays usable.",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/package-lock.json": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true
+  }
+}
