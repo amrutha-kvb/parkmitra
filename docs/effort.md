@@ -13,7 +13,7 @@ Two clocks are kept separate throughout, as the programme requires: **product** 
 | Commits | 54 across all branches (25 on the 22nd, 29 on the 23rd) |
 | Tracked files | 123 |
 | Application + schema | 10,543 lines |
-| Tests | 363 lines of dedicated test files, 217 assertions passing across 12 files |
+| Tests | 363 lines of dedicated test files, 219 assertions passing across 12 files |
 | Lifecycle artifacts | 54 documents, 6,320 lines |
 
 ## By phase
@@ -26,9 +26,9 @@ Two clocks are kept separate throughout, as the programme requires: **product** 
 | 3 design | 22 Sep 20:21–20:28 | ~1h | architecture, ADR-001…003, data model, dictionary, OpenAPI, NFRs, threat model |
 | 4 UX | 22 Sep 20:28–20:36 | ~50m | flows with failure paths, wireframes, tokens, mockups, a11y plan, terminology |
 | 5 plan | 23 Sep 15:01–15:05 | ~40m | epics, backlog with acceptance criteria, DoD, test strategy, risks, sequence |
-| 6 build | 23 Sep 15:05–18:45 | ~4h30m | schema, seed, six screens, all API routes, 217 tests, deploy, fresh-clone verify |
+| 6 build | 23 Sep 15:05–18:45 | ~4h30m | schema, seed, six screens, all API routes, 219 tests, deploy, fresh-clone verify |
 | 7 harden | 23 Sep 18:45–19:30 | ~1h15m | security review, a11y audit, health endpoint, alerting |
-| 8 ship | 23 Sep 19:30–19:45 | ~45m | v1.0.0, changelog, retrospective, this document, handover |
+| 8 ship | 23 Sep 19:30–20:10 | ~1h15m | v1.0.0, changelog, retrospective, this document, handover, measured performance |
 | 9 run | 23 Sep 18:58–19:04 | ~35m | runbook, rollback practised, alert fired for real |
 
 **Read the two time columns separately.** The first is when that phase's commits landed;

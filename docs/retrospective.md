@@ -126,7 +126,7 @@ named in the prompt and the terminology file had to be discovered. Constraints y
 survive; constraints you merely write down do not.
 
 **The user found the bug that mattered most.** The timezone shift — an 11 pm selection
-arriving as 5:30 pm — survived 217 passing tests, my review, and a deployment. It took one
+arriving as 5:30 pm — survived the entire passing suite, my review, and a deployment. It took one
 person using the thing for real, once. Every test in the suite ran in the same timezone as
 the code, so none of them could see it.
 

@@ -13,6 +13,7 @@ and can run the thing; if you cannot, that is a bug in the README and worth fixi
 | Why it is built this way | [`design/adr/`](../design/adr/) — read ADR-001 first |
 | Known security gaps | [`field/security-review.md`](../field/security-review.md) |
 | What I would change | [`docs/retrospective.md`](retrospective.md) |
+| Measured performance | [`docs/performance.md`](performance.md) |
 
 ## The one thing to understand before changing anything
 
@@ -32,7 +33,7 @@ ends. Money is integer paise everywhere (ADR-003) and is **never** accepted from
 
 ---
 
-## The next three tickets
+## The next four tickets
 
 In priority order. Each is scoped to be finishable, with the acceptance criterion that
 matters stated rather than implied.
@@ -84,10 +85,29 @@ themselves, and one real driver has parked in it.
 
 ---
 
+### 4. Move the deployment to the region its users are in — S, performance
+
+Requests enter Vercel's Mumbai edge and are then executed in Washington DC
+(`x-vercel-id: bom1::iad1::…`), so roughly 230-250 ms of every response is geography. All
+three measured endpoints cluster at the same p50 despite doing very different amounts of
+work, which is the signature of time spent travelling rather than computing. See
+[`docs/performance.md`](performance.md).
+
+Set the Vercel function region to `bom1` and create the Neon database in `ap-south-1`.
+**Both, or neither** — moving compute to Mumbai while the database stays in Virginia
+replaces one user-to-server crossing with several server-to-database crossings per request,
+and would be worse than doing nothing.
+
+**Done when:** `x-vercel-id` shows a South Asian execution region, the database is in
+`ap-south-1`, and the measurements in `docs/performance.md` have been retaken and show the
+improvement rather than being assumed to.
+
+---
+
 ## Also worth doing, smaller
 
 - **Test in a non-IST timezone.** The one bug that reached a user was a timezone shift that
-  217 tests missed because they all ran where the code did. A CI matrix entry with `TZ` set
+  the whole suite missed, because every test ran where the code did. A CI matrix entry with `TZ` set
   elsewhere would have caught it.
 - **Assign a deputy owner.** The runbook has one name against it, which means the service is
   unowned the first week that person is unavailable.
