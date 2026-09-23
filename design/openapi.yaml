@@ -108,6 +108,66 @@ paths:
                     items: { $ref: "#/components/schemas/SpotAvailability" }
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /bays:
+    get:
+      tags: [availability]
+      operationId: listFreeBays
+      summary: Free bays at one spot for one window
+      description: |
+        The bays at a single spot that are not already booked for the requested window.
+
+        Undocumented until 2026-09-24: the route existed and the contract did not mention
+        it, which is the drift this contract is supposed to prevent. Added here after the
+        endpoint audit (`docs/endpoint-audit.md`) walked the routes against this file.
+
+        Public, no authorisation — like search, choosing a bay needs no identity (ADR-002).
+      parameters:
+        - name: spot_id
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: start
+          in: query
+          required: true
+          description: Window start, ISO 8601 with offset.
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          required: true
+          description: Window end, exclusive. Windows are half-open `[start, end)`.
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Free bays, ordered by label. An empty array is a valid answer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bays]
+                properties:
+                  bays:
+                    type: array
+                    items:
+                      type: object
+                      required: [bay_id, label]
+                      properties:
+                        bay_id: { type: integer }
+                        label:  { type: string, example: "B-14" }
+        "400":
+          description: Missing or malformed `spot_id`, `start` or `end`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: The window falls outside the spot's opening hours.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /bookings:
     post:
@@ -148,6 +208,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /bookings/{reference_code}:
     get:
@@ -210,6 +272,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /bookings/{reference_code}/arrive:
     post:
@@ -236,6 +300,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /health:
     get:

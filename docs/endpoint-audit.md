@@ -68,6 +68,16 @@ booking: 10,  // a write that reserves a bay (T3)
 
 The tightest budget is on the only endpoint that costs something real.
 
+## A correction to this document
+
+The first version of this table claimed `POST /api/bookings/{code}/pay` and
+`.../arrive` were rate limited at `mutate`, 20/min. **They were not.** I wrote down the
+intended design and read it back as the implemented one — the same mistake this document
+criticises `design/threat-model.md` for two sections above, made in the act of criticising it.
+
+Both are now actually guarded, with a wiring test each. Left in rather than quietly fixed,
+because an audit that has never been wrong is an audit nobody checked.
+
 ## What this audit changed
 
 1. **`/api/availability`, `/api/bays` and `POST /api/bookings` had no rate limiting at all.**
@@ -79,7 +89,11 @@ The tightest budget is on the only endpoint that costs something real.
    five handlers — three details in it are easy to get subtly wrong and all three fail
    silently: which IP to trust, failing open rather than closed, and not logging the pg error
    object (SEC-001).
-4. **A wiring test per guarded route.** The guard is mocked in the route suites, so without
+4. **`/bays` was missing from `design/openapi.yaml` entirely** — the route existed and the
+   binding contract did not mention it. Added.
+5. **Four operations returned 429 without documenting it.** `/availability`, `/bookings`,
+   `/pay` and `/arrive` all gained a limiter and none gained a contract entry. Documented.
+6. **A wiring test per guarded route.** The guard is mocked in the route suites, so without
    these nothing would notice a route quietly losing its limiter — the mock would make an
    unprotected endpoint look tested. Verified by removing the guard and watching them fail.
 
