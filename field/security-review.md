@@ -21,35 +21,37 @@ described is an intention.
 
 ---
 
-## Not implemented — stated rather than quietly dropped
+## Implemented since the original review
 
 ### Rate limiting on the booking lookup (T1)
 
-`design/threat-model.md` lists it as a control and `design/openapi.yaml` documents a `429`
-response. **Neither exists.**
+`GET /api/bookings/{reference_code}` is now rate-limited at 20 requests per minute
+per client IP. The 21st request in a window returns `429` with a `Retry-After` header.
+`design/openapi.yaml` documents the `429` response and header.
 
-```
-$ for i in $(seq 1 25); do curl -o /dev/null -w "%{http_code} " \
-    https://…/api/bookings/ZZZZZZZZZ$i ; done
-404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404
-```
+**Implementation.** A Postgres-backed fixed-window counter (`rate_limit_hits` table,
+migration `004_rate_limits.sql`). The count is incremented and read in a single atomic
+`INSERT … ON CONFLICT … DO UPDATE SET hits = hits + 1 RETURNING hits` statement, so
+concurrent requests cannot both read the pre-increment value. The client IP is read
+from the `x-forwarded-for` header set by Vercel's edge.
 
-Twenty-five rapid attempts, no throttling.
+**Why an in-memory limiter was refused.** On Vercel's serverless runtime, invocations
+do not reliably share process state. An in-memory counter would throttle
+inconsistently while *looking* like a control. A limiter that works sometimes is worse
+than a documented gap, because it invites the belief that the surface is protected.
+Shared state was required; Postgres was chosen over Upstash Redis because Neon is
+already available and adding a vendor for defence-in-depth is not justified.
 
-**Why it is not there, and why nothing fake was added instead.** On Vercel's serverless
-runtime an in-memory counter is close to useless — invocations do not reliably share
-process state, so a limiter would throttle inconsistently while *looking* like a control.
-Doing it properly needs shared state (Upstash Redis is on the approved free-tier list), and
-that was not reached in the time available. A limiter that works sometimes is worse than a
-documented gap, because it invites the belief that the surface is protected.
+**Failure mode: fail open.** If the rate-limit query fails (table missing, connection
+error), the lookup proceeds without throttling rather than returning 500. The rate
+limiter is defence in depth — a limiter outage must not take down the booking lookup.
+This is explicit in the route handler (`try/catch` with an empty `catch`) and tested.
 
-**Residual risk: low but real.** The primary defence is entropy, and it is doing the work:
-at ~50 bits, guessing a code is not feasible at any rate this free tier could serve. Rate
-limiting is defence in depth, not the barrier.
-
-**Action taken now:** the contract is annotated so it stops promising a `429` that the
-implementation does not return. The gap is carried into the handover as the first security
-task.
+**Residual risk: low.** The primary defence is entropy (~50 bits), not the rate
+limiter. The fixed-window design allows up to 2× the limit (40 requests) across a
+window boundary; this is inherent and irrelevant at this keyspace size. IP-based
+limiting does not stop distributed attacks, but even a million IPs × 20 requests/min
+cannot feasibly guess a valid code.
 
 ### Booking spam (T3)
 
@@ -62,9 +64,9 @@ Seeded, demo-scale data limits the blast radius for now.
 
 ## What this review changed
 
-1. `design/openapi.yaml` no longer advertises a `429` on the lookup endpoint; it says
-   plainly that rate limiting is not yet implemented.
-2. Rate limiting is the first item in the handover.
+1. `design/openapi.yaml` documents the `429` response with a `Retry-After` header on
+   the lookup endpoint, matching the implementation.
+2. Rate limiting was the first item in the handover and is now implemented.
 
 ## Honest limits of this review
 

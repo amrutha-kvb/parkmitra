@@ -25,6 +25,7 @@ import {
   BookingResponse,
   ErrorResponse,
 } from "../../../../lib/booking-lookup";
+import { checkRateLimit } from "../../../../lib/rate-limit";
 
 /**
  * GET /api/bookings/[reference_code]
@@ -37,6 +38,36 @@ export async function GET(
   { params }: { params: Promise<{ reference_code: string }> },
 ): Promise<NextResponse<BookingResponse | ErrorResponse>> {
   const { reference_code } = await params;
+
+  // -------------------------------------------------------------------------
+  // 0. Rate-limit by client IP (threat-model T1, defence in depth).
+  // -------------------------------------------------------------------------
+  const ip = _request.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    ?? "127.0.0.1";
+  try {
+    const limit = await checkRateLimit(ip);
+    if (!limit.allowed) {
+      return NextResponse.json<ErrorResponse>(
+        { error: "rate_limited", message: "Too many requests. Try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limit.retryAfterSeconds) },
+        },
+      );
+    }
+  } catch (err) {
+    // Fail open: the rate limiter is defence in depth, not the barrier
+    // (entropy is), so a limiter outage must not take down the lookup.
+    //
+    // Log the TYPE, never the error object. SEC-001: a pg error can carry the
+    // connection string, and this is a server log that may be shipped
+    // elsewhere. app/api/health/route.ts swallows errors entirely for the same
+    // reason; the operator signal here is that it happened at all.
+    console.error(
+      "rate-limit check failed, proceeding without throttling:",
+      err instanceof Error ? err.name : "unknown error",
+    );
+  }
 
   // -------------------------------------------------------------------------
   // 1. Validate the reference_code pattern (SEC-003).

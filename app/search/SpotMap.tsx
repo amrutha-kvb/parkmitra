@@ -53,13 +53,22 @@ import "leaflet/dist/leaflet.css";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
+// Served from /public, NOT from unpkg.
+//
+// These were CDN URLs. Leaflet is already an npm dependency, so the images were
+// being fetched from a third party that the project gains nothing from — and
+// every visitor's browser was telling unpkg.com their IP address and, via the
+// Referer header, which page they were on. For a product whose threat model
+// treats "who parked where" as personal data (T5), that is a real leak through
+// a decorative asset, and it is also a supply-chain dependency on a host nobody
+// here controls. Copied to public/leaflet/ by hand from node_modules; they are
+// static image files that have not changed since Leaflet 1.7.
+//
+// Found by the phase 7 privacy review, not by a test.
 L.Icon.Default.mergeOptions({
-  iconUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: "/leaflet/marker-icon.png",
+  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
+  shadowUrl: "/leaflet/marker-shadow.png",
 });
 
 /* ─────────────────────────────────────────────

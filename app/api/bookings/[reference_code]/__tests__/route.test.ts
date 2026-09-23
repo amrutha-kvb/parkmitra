@@ -42,16 +42,20 @@ import { NextRequest } from "next/server";
 // ---------------------------------------------------------------------------
 // Hoist mocks before any imports.
 // ---------------------------------------------------------------------------
-const { mockFindBookingByCode } = vi.hoisted(() => ({
+const { mockFindBookingByCode, mockCheckRateLimit } = vi.hoisted(() => ({
   mockFindBookingByCode: vi.fn(),
+  mockCheckRateLimit: vi.fn(),
 }));
 
 vi.mock("../../../../../lib/booking-lookup", async (importOriginal) => {
-  // Re-use the real helpers for everything except findBookingByCode.
   const real =
     await importOriginal<typeof import("../../../../../lib/booking-lookup")>();
   return { ...real, findBookingByCode: mockFindBookingByCode };
 });
+
+vi.mock("../../../../../lib/rate-limit", () => ({
+  checkRateLimit: mockCheckRateLimit,
+}));
 
 // Import the handler AFTER the mock is in place.
 import { GET } from "../route";
@@ -93,6 +97,8 @@ function makeParams(
 
 beforeEach(() => {
   mockFindBookingByCode.mockReset();
+  mockCheckRateLimit.mockReset();
+  mockCheckRateLimit.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
 });
 
 // ===========================================================================
@@ -261,6 +267,50 @@ describe("happy path / 200", () => {
 // ===========================================================================
 // 17–18  Error schema (ARCH-002)
 // ===========================================================================
+// ===========================================================================
+// 19  Fail-open (rate limiter unavailable)
+// ===========================================================================
+describe("fail-open", () => {
+  it("19. limiter throwing does not block a legitimate lookup", async () => {
+    mockCheckRateLimit.mockRejectedValueOnce(new Error("connection refused"));
+    mockFindBookingByCode.mockResolvedValueOnce(BOOKING_ROW);
+    const res = await GET(makeGET(VALID_CODE), makeParams(VALID_CODE));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reference_code).toBe(VALID_CODE);
+  });
+
+  it("20. limiter failure is logged so the operator knows", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCheckRateLimit.mockRejectedValueOnce(new Error("connection refused"));
+    mockFindBookingByCode.mockResolvedValueOnce(BOOKING_ROW);
+    await GET(makeGET(VALID_CODE), makeParams(VALID_CODE));
+    expect(spy).toHaveBeenCalledWith(
+      "rate-limit check failed, proceeding without throttling:",
+      "Error",
+    );
+    spy.mockRestore();
+  });
+
+  // SEC-001. A pg error can carry the connection string in its message or in
+  // its attached properties, and server logs get shipped elsewhere. The
+  // operator signal that matters is THAT the limiter failed, not the detail.
+  // app/api/health/route.ts swallows errors entirely for the same reason.
+  it("21. the logged value never contains the connection string", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCheckRateLimit.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED postgres://user:hunter2@db.example.com:5432/parkmitra"),
+    );
+    mockFindBookingByCode.mockResolvedValueOnce(BOOKING_ROW);
+    await GET(makeGET(VALID_CODE), makeParams(VALID_CODE));
+
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).not.toContain("postgres://");
+    expect(logged).not.toContain("hunter2");
+    spy.mockRestore();
+  });
+});
+
 describe("error schema (ARCH-002)", () => {
   it("17. 404 body has exactly { error, message }", async () => {
     mockFindBookingByCode.mockResolvedValueOnce(null);

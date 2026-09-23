@@ -25,5 +25,10 @@ export default defineConfig({
     // endpoint where session-level locks are not reliable, and the failure
     // mode was an indefinite hang rather than an honest error.
     fileParallelism: false,
+
+    // The database is in us-east-1; each query adds ~230ms of geography.
+    // Tests that issue 20+ sequential queries (rate-limit, concurrency)
+    // need more than the 5s default.
+    testTimeout: 30_000,
   },
 });
