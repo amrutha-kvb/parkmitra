@@ -240,8 +240,9 @@ export default function HomePage() {
             marginTop: "var(--space-1)",
           }}
         >
-          Malls, apartment blocks and gyms have bays sitting empty for hours —
-          find one nearby and book it by the hour.
+          Built after a night with a car and nowhere safe to put it. Malls,
+          apartment blocks and gyms have bays sitting idle for hours — this
+          finds one near you and holds it by the hour.
         </p>
 
         {/* ── How it works — single compact line ── */}
@@ -263,8 +264,10 @@ export default function HomePage() {
         >
           <span aria-hidden="true">ℹ︎</span>
           <span>
-            <strong>This is a demo.</strong> Every parking spot listed here is
-            fictional and no real business is named. No real payment is taken.
+            <strong>Real booking engine, seeded supply.</strong> Bookings,
+            pricing and the one-car-per-bay guarantee are enforced by the
+            database. Spots are invented — listing a real business without its
+            consent isn&apos;t ours to do. Payment is simulated.
           </span>
         </p>
       </div>
