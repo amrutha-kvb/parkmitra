@@ -4,3 +4,4 @@
 {"ts":"2026-09-23T10:23:46.074Z","rule_id":"GOV-MANAGED-POLICY","rule_name":"Organisation permission policy v0 — 0 deny / 0 ask, mode ceiling auto","severity":"advisory","would_block":false,"proceeded":true,"level":"managed","policy_version":0}
 {"ts":"2026-09-23T10:26:13.793Z","rule_id":"GOV-MANAGED-POLICY","rule_name":"Organisation permission policy v0 — 0 deny / 0 ask, mode ceiling auto","severity":"advisory","would_block":false,"proceeded":true,"level":"managed","policy_version":0}
 {"ts":"2026-09-23T10:43:50.323Z","rule_id":"GOV-MANAGED-POLICY","rule_name":"Organisation permission policy v0 — 0 deny / 0 ask, mode ceiling auto","severity":"advisory","would_block":false,"proceeded":true,"level":"managed","policy_version":0}
+{"ts":"2026-09-23T10:49:09.655Z","rule_id":"GOV-MANAGED-POLICY","rule_name":"Organisation permission policy v0 — 0 deny / 0 ask, mode ceiling auto","severity":"advisory","would_block":false,"proceeded":true,"level":"managed","policy_version":0}

@@ -24,8 +24,8 @@
  *   (SEC-004).
  */
 
-import pool from "./db.js";
-import { computeAmountPaise } from "./money.js";
+import pool from "./db";
+import { computeAmountPaise } from "./money";
 
 // ---------------------------------------------------------------------------
 // Public type — mirrors SpotAvailability in design/openapi.yaml exactly.
