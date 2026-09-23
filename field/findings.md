@@ -432,6 +432,59 @@ characterised rather than fixed mid-build.
 
 ---
 
+### F-12  `niha ceremony kaizen` reports a usage error but exits 0, so a script cannot tell it failed
+Severity:    S3
+Area:        CLI — ceremony, exit codes
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       6, build
+Steps:
+  1. niha --help                      # note the documented form
+  2. niha ceremony kaizen ; echo $?
+  3. niha trace ; echo $?             # control: the same kind of usage error
+Expected:    a usage error exits non-zero, as every other command in the CLI does.
+Actual:
+  $ niha --help | grep ceremony
+      ceremony kaizen      Kaizen Cycle (preview auto-generated agenda)
+
+  $ niha ceremony kaizen
+  Usage: niha ceremony kaizen --preview
+  $ echo $?
+  0
+
+  Controls — the same class of error on three other commands, all correct:
+  $ niha trace            → exit 1 | Usage: niha trace <id> | --last | --pr <number>
+  $ niha rules show X     → exit 1 | error: unknown command 'show'
+  $ niha agent status zzz → exit 1 | Agent not found: zzz
+
+  And with the flag it asks for:
+  $ niha ceremony kaizen --preview
+  Kaizen agenda preview is not available yet — the platform endpoint doesn't exist.
+  Tracked as a follow-up (S1-140 — /api/v1 kaizen preview).
+  $ echo $?
+  0
+Impact:      Low severity but a real trap, and it is the quiet kind. `niha --help` lists
+             `ceremony kaizen` as the command, so that is what a person or a script will
+             run. It prints a usage line to say it is wrong, then reports success. Any
+             wrapper using `set -e`, `&&`, or a CI step that checks the exit status treats
+             a failed invocation as a pass. The rest of the CLI gets this right, which is
+             what makes it a defect rather than a convention — `niha trace` in exactly the
+             same situation exits 1.
+             Secondary, same command: the correct invocation also exits 0 while reporting
+             that the feature does not exist yet. "Not implemented" and "worked" should not
+             be indistinguishable to a caller.
+Suggested:   Exit non-zero on the usage error, matching `trace`, `rules` and
+             `agent status`. Decide deliberately what `--preview` should return while the
+             endpoint is missing — a non-zero exit with the same explanatory message would
+             be honest, and leaves room for a caller to branch on it. If the subcommand is
+             not usable at all yet, consider not advertising it in `niha --help`.
+Disposition: FILED (#1030)
+
+Tier: T3 — cosmetic in effect, recorded rather than fixed mid-build.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
