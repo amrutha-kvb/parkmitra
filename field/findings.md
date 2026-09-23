@@ -558,8 +558,81 @@ Suggested:   Three separate things. (a) Reconcile authorisation with provisionin
              costs the user a re-auth and does not fix anything.
 Disposition: FILED (#1031)
 
+**CORRECTION, 2026-09-23, same day.** Part of this finding was wrong and is withdrawn.
+
+I claimed the credential was valid, and therefore that "Run niha login or check your role"
+was misleading. That was based on incomplete evidence: I filtered `niha whoami` with
+`grep -E 'Email|Role|Token'`, which hid the decisive line. The full output says both
+"Token: valid for 28d 23h" AND "✗ This credential is expired or revoked — the API rejected
+it", and `doctor` had been reporting the rejection all along. The credential really was
+rejected, the authorisation failure was correct, and the remedy offered was right.
+Suggestion (c) is withdrawn.
+
+What stands is the substance: **the pre-commit hook fails open silently.** Every commit
+passed unchecked — secret scan included — with one grey line as the only signal and exit 0.
+Suggestions (a) and (b) are unchanged.
+
+The misleading `whoami` display that caused this error is filed separately as F-14.
+
 Tier: T2 — commits still work, so there is a workaround in the sense that nothing blocks,
 which is exactly the problem. Recorded and characterised rather than fixed mid-build.
+
+---
+
+### F-14  `niha whoami` prints "Token: valid for 28d 23h" directly above "this credential is expired or revoked"
+Severity:    S2
+Area:        auth / whoami
+Scenario:    none
+Frequency:   every time while the credential is rejected (5/5)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. niha login, then work until the credential is rejected server-side
+  2. niha whoami
+  3. niha doctor
+Expected:    one verdict. If the server has rejected the credential, the summary line should not say it is valid for another 28 days.
+Actual:
+  $ niha whoami
+
+    Auth:      JWT token
+    Name:      amrutha.korumilli
+    Email:     amrutha.korumilli@techatcore.com
+    Org:       AI Challenge Q3 2026
+    Role:      capability_builder
+    Trust:     L1
+    Token:     valid for 28d 23h
+    Profile:   niha
+    Store:     keychain "niha" (falls back to /Users/amruthakorumilli/.niha/credentials.json)
+
+    ✗ This credential is expired or revoked - https://api.nihaandco.com/api/v1/auth/me rejected it.
+
+  Both statements are in one output. "valid for 28d 23h" is computed from the JWT's own
+  expiry; the ✗ line is the server's verdict. They are never reconciled.
+
+  doctor is unambiguous by comparison:
+  $ niha doctor
+    ✗ Credentials — JWT rejected by https://api.nihaandco.com/api/v1/auth/me (expired or revoked) — run `niha login`
+Impact:      The line a reader scans for is the one labelled "Token", and it says valid.
+             The contradiction sits four lines below it, after the store path, formatted as
+             a footnote.
+             This cost me real time and, worse, a wrong report. Chasing an authorisation
+             failure elsewhere in the CLI, I checked whoami, saw "valid for 28d 23h", and
+             concluded the session was fine — so I filed a finding criticising a perfectly
+             correct "run niha login" message as bad advice. I had to withdraw that part
+             publicly. The display did not merely slow me down; it produced a false
+             conclusion I then acted on. ~25 minutes, plus the correction.
+             The programme's own worked example is "doctor reports healthy while the session
+             token is expired". This is that shape, in whoami, with the contradiction
+             visible in a single screen of output.
+Suggested:   Let the server's verdict win the summary line. When /auth/me rejects the
+             credential, print "Token: expired or revoked" — or "rejected by the server
+             (local expiry 28d 23h)" if the local figure is worth keeping for debugging —
+             rather than a confident "valid for 28d 23h" that the next line contradicts.
+             The ✗ should lead, not trail.
+Disposition: FILED (#1032)
+
+Tier: T2 — a workaround exists (trust `doctor`, which is unambiguous), so recorded and
+characterised rather than fixed mid-build.
 
 ---
 

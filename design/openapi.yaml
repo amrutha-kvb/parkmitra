@@ -157,7 +157,12 @@ paths:
       description: |
         The reference code is the authorisation. There is no other read path.
 
-        Rate limited: this endpoint is the enumeration surface for the whole system.
+        This endpoint is the enumeration surface for the whole system. The defence is
+        entropy — a ~50-bit CSPRNG code — NOT rate limiting, which is documented in
+        design/threat-model.md as a control but is **not implemented** (verified
+        2026-09-23: twenty-five rapid requests, no throttling). See
+        field/security-review.md. The 429 below is therefore not currently returned;
+        it is retained as the intended shape for when shared-state limiting is added.
       parameters:
         - name: reference_code
           in: path
@@ -178,6 +183,8 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "429":
+          # NOT YET RETURNED — see the description above. Documented so the shape is
+          # settled before the control exists, rather than invented later under pressure.
           $ref: "#/components/responses/TooManyRequests"
 
   /bookings/{reference_code}/pay:

@@ -151,7 +151,14 @@ export default function SpotMap({ spots, onError }: SpotMapProps) {
 
     // Add one marker per spot
     spots.forEach((spot) => {
-      const marker = L.marker([spot.lat, spot.lng]);
+      // keyboard: false — Leaflet otherwise gives every marker tabindex="0"
+      // role="button", which makes them focusable controls nested inside this
+      // container's role="img". axe reports that as a serious nested-interactive
+      // violation, and it contradicts design/a11y.md, which says the map is
+      // hidden from keyboard navigation and every spot is reachable from the
+      // list below. The comment at the top of this file already claimed that
+      // was true; this is what actually makes it true.
+      const marker = L.marker([spot.lat, spot.lng], { keyboard: false });
       const price = paiseToDisplay(spot.price_per_hour_paise);
       marker.bindPopup(
         `<strong style="font-size:14px">${spot.name}</strong><br/>${price}/hr`,
@@ -177,8 +184,24 @@ export default function SpotMap({ spots, onError }: SpotMapProps) {
        * non-interactive image region. Keyboard users navigate via the list
        * of spot cards below; the map is supplementary.
        */
-      role="img"
-      aria-label={`Map showing ${spots.length} parking spot${spots.length !== 1 ? "s" : ""}`}
+      /**
+       * Not role="img", and not aria-hidden.
+       *
+       * Both were attempts to declare the map non-interactive so keyboard users
+       * would use the list instead. Neither was true: Leaflet gives the
+       * container tabindex="0" and renders real focusable zoom controls, so
+       * role="img" nested interactive elements inside a non-interactive role,
+       * and aria-hidden hid a region that could still receive focus. axe flags
+       * both, correctly.
+       *
+       * A pannable, zoomable map is an interactive region, so it is labelled as
+       * one. Its zoom controls carry their own labels. What makes the map
+       * genuinely optional is design/a11y.md's real requirement, which holds:
+       * every spot is reachable from the list below, and the markers themselves
+       * are not focusable.
+       */
+      role="region"
+      aria-label={`Map of ${spots.length} parking spot${spots.length !== 1 ? "s" : ""}. Every spot is also listed below.`}
       ref={containerRef}
       className="spot-map"
       style={{
