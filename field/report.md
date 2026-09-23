@@ -6,7 +6,7 @@
 
 ## Summary
 
-Twelve findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+Fourteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
 verbatim output. Three fix PRs raised. Four further candidates were investigated and
 **discarded rather than banked**, including two of my own measurement errors, and one filed
 finding was **publicly corrected** when better evidence contradicted part of it.
@@ -34,6 +34,8 @@ another 28 days. Most of what follows flows from those two facts.
 | F-14 | S2 | [#1032](https://github.com/niha-and-co/ai-platform/issues/1032) | **`whoami` prints "Token: valid for 28d 23h" directly above "this credential is expired or revoked"** |
 | F-15 | S2 | [#1033](https://github.com/niha-and-co/ai-platform/issues/1033) | **`ci agent init` pins the action to `@v1`, a ref that has never existed** — generated CI fails on every PR |
 | F-16 | S2 | [#1035](https://github.com/niha-and-co/ai-platform/issues/1035) | **The same generated workflow references an action in a private repo**, so no consumer's runner can resolve it |
+| F-17 | S2 | [#1036](https://github.com/niha-and-co/ai-platform/issues/1036) | `export --json` is documented as shorthand for `--format json`, emits markdown, exits 0 |
+| F-18 | S2 | [#1037](https://github.com/niha-and-co/ai-platform/issues/1037) | **`export` reports "Total time 2s" for a 41-minute session**, contradicting its own timestamps four lines above |
 
 Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
 [#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
@@ -83,6 +85,23 @@ generated CI", and it does not.
 
 ---
 
+**F-18 — the number the programme itself asks for is wrong.** `niha export` prints a session
+summary whose `Started` and `Last updated` rows are 40m 51s apart, and a `Total time` row
+reading **2s**, in the same table. Wrong by three orders of magnitude, in the one place a
+reader cannot cross-check without doing the subtraction by hand.
+
+It matters more than a normal metrics bug because of what the field is for. Scenario **B8**
+asks every engineer on this programme to report "cost and token readout at the end of each
+long session… whether long sessions cost disproportionately more". Answering that means
+dividing cost by duration. `export` supplies both, the cost is right, and the duration is
+not — so the figure every participant is asked to report is wrong, in the same direction,
+for all of them. I found it by trying to do exactly that.
+
+Same shape as F-14: a summary line contradicting data the command has already printed. When
+two fields in one table disagree, the tool is asking the reader to notice on its behalf.
+
+---
+
 ## The correction, and what it cost
 
 I filed F-13 claiming the credential was valid and the "run `niha login`" advice was
@@ -105,7 +124,7 @@ confidently from what is left. I did that with the tool's output in front of me.
 | | Covered | Not covered |
 |---|---|---|
 | **A** task understanding | A1, A2, A4 | A3, A5, A6 |
-| **B** long sessions | B5, B6, B7, B8 partially | **B1, B2, B3 not met** |
+| **B** long sessions | B5, B6, B8 measured; B7 none to report | **B1, B2, B3 in progress** |
 | **C** recording discipline | C1, C2, C3, C5 | C4 (macOS only) |
 
 **The long-session protocol was not completed, and I am not going to present it as if it
