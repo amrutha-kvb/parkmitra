@@ -61,6 +61,15 @@ const { mockQuery, mockComputeAmountPaise } = vi.hoisted(() => ({
   mockComputeAmountPaise: vi.fn(),
 }));
 
+// The rate-limit guard talks to Postgres, and this suite mocks the pool — so
+// without this the guard throws, fails open (correctly), and its attempted
+// query pollutes the call counts these tests assert on. The guard has its own
+// tests in tests/rate-limit.test.ts; here it is not the subject.
+vi.mock("../../../../lib/rate-limit-guard", () => ({
+  rateLimitGuard: vi.fn(async () => null),
+  clientIp: vi.fn(() => "127.0.0.1"),
+}));
+
 vi.mock("../../../../lib/db", () => ({
   default: { query: mockQuery },
 }));
@@ -71,6 +80,7 @@ vi.mock("../../../../lib/money", () => ({
 
 // Import handler + exported helpers after mocks are in place.
 import { POST, generateReferenceCode, isWithinOpeningHours } from "../route";
+import { rateLimitGuard } from "../../../../lib/rate-limit-guard";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -667,5 +677,32 @@ describe("error response schema (ARCH-002)", () => {
     const res = await POST(makeRequest(noId));
     const body = await res.json();
     expect(body.error).toMatch(/^\w+$/);
+  });
+});
+
+
+/**
+ * The guard is mocked above so it cannot reach Postgres. That means nothing
+ * else in this file would notice if the route stopped calling it — the mock
+ * would silently make an unprotected endpoint look tested.
+ *
+ * Threat T3, booking spam, is unmitigated in design/threat-model.md except by
+ * this limiter, so "is it wired in" is the assertion that matters.
+ */
+describe("rate limiting is wired in (T3)", () => {
+  it("calls the guard with the 'booking' scope", async () => {
+    vi.mocked(rateLimitGuard).mockClear();
+    setupHappyPath();
+    await POST(makeRequest(VALID_BODY));
+    expect(rateLimitGuard).toHaveBeenCalledWith(expect.anything(), "booking");
+  });
+
+  it("returns the guard's 429 without touching the database", async () => {
+    const { NextResponse } = await import("next/server");
+    vi.mocked(rateLimitGuard).mockResolvedValueOnce(
+      NextResponse.json({ error: "rate_limited", message: "no" }, { status: 429 }),
+    );
+    const res = await POST(makeRequest(VALID_BODY));
+    expect(res.status).toBe(429);
   });
 });

@@ -68,12 +68,19 @@ effective.
 the two things that make spam cost something, and both are out of scope.
 
 *Partial controls*
-- Rate limit booking creation per IP
+- **Rate limit booking creation per IP — 10/minute** (`lib/rate-limit.ts`, scope `booking`,
+  the tightest budget in the product). Implemented 2026-09-24. **This document listed it as
+  a control before it existed**; the audit in `docs/endpoint-audit.md` found that
+  `POST /api/bookings` had no throttling at all, which made the one endpoint that costs
+  something real the least protected. Recorded plainly because a threat model that claims
+  controls it does not have is worse than one that admits a gap.
 - `pending` bookings expire at read time, so an unpaid flood decays rather than persisting
 - Seeded, demo-scale data limits the blast radius
 
-*Recorded as a known, accepted hole.* The real fix is OTP on the phone number plus real
-payment, which is exactly the pair named as "first thing to add" in ADR-002.
+*Status: **mitigated, not closed**.* Ten a minute per IP is a speed bump — an attacker with a
+handful of addresses still reserves bays faster than anyone releases them. The real fix is
+OTP on the phone number plus real payment, which is exactly the pair named as "first thing to
+add" in ADR-002 and is handover ticket 2.
 
 ## T4 — SQL injection
 
