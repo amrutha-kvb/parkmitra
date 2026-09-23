@@ -195,6 +195,10 @@ Each of these is a decision, recorded with its reason in
   interface says so rather than hiding it behind a spinner.
 - English only — a real limitation in Hyderabad.
 - Accessibility is audited by keyboard and automated checks, not on a screen reader.
+- **No linter.** Next 16 removed `next lint` and ESLint cannot parse this project's
+  TypeScript — typescript-eslint does not support TS 7 yet. `npm run typecheck` runs in CI
+  and is stricter about types, but the react-hooks and Next-specific rules are unchecked.
+  Recorded rather than papered over with a lint that only reads config files.
 
 ---
 

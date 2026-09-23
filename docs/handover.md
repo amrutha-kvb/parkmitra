@@ -113,6 +113,12 @@ improvement rather than being assumed to.
   unowned the first week that person is unavailable.
 - **Cancellation and refund policy.** Cancellation works; what happens to the money is
   undefined, and will stop being theoretical the moment payment is real.
+- **Restore linting when typescript-eslint supports TypeScript 7.** There is currently no
+  linter on this project at all. Next 16 removed `next lint`, and ESLint cannot parse the
+  TypeScript here — `typescript-eslint does not support TS 7.0`. Neither available
+  workaround was taken: downgrading TypeScript to satisfy a linter, or forcing an unmet peer
+  dependency that would then break `npm ci` on a fresh clone. `npm run typecheck` runs in CI
+  and is stricter about types, but nothing is checking the react-hooks or Next-specific rules.
 - **Watch `npm run verify` on a fresh clone** whenever setup changes. Two separate bugs got
   in by being invisible on a machine that already worked.
 

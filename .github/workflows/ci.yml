@@ -75,7 +75,13 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm run lint
+      # No lint step, deliberately. Next 16 removed `next lint`, and ESLint
+      # cannot parse this project's TypeScript: typescript-eslint does not
+      # support TS 7, which is the version here. Downgrading TypeScript to
+      # satisfy a linter, or forcing an unmet peer dependency that would then
+      # break `npm ci`, are both worse than the gap. `npm run typecheck` runs
+      # above and is stricter about the things that matter most.
+      # Tracked in docs/handover.md.
 
       - run: npm test
 

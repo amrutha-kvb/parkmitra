@@ -35,7 +35,7 @@ for the exclusion constraint and returns 503 if it is missing. The app can serve
 perfectly while quietly allowing two cars into one bay, and a liveness ping would call that
 healthy. `scripts/health-alert.sh` polls it and opens a GitHub issue.
 
-**Continuous integration.** Typecheck, lint, 219 unit tests and the Playwright suite run on
+**Continuous integration.** Typecheck, 219 unit tests and the Playwright suite run on
 every pull request against a real Postgres 16 service container with the real migrations
 applied, plus an explicit assertion that the exclusion constraint exists before any test
 runs.
@@ -57,6 +57,16 @@ runs.
   `nested-interactive`; `aria-hidden` then produced `aria-hidden-focus`. Fixed by making the
   markup honest: a pannable map is a labelled `role="region"`, with every spot also in the
   list below it.
+- **`npm run lint` had never worked.** Next 16 removed `next lint`, so the script resolved
+  to `next <dir>` and failed with "Invalid project directory". ESLint cannot replace it yet
+  either — typescript-eslint does not support TypeScript 7 — so the script was removed and
+  the gap recorded rather than left as a command that looks like it lints and does not.
+- **`tests/availability.test.ts` cleaned up with `DELETE FROM bookings`**, which fails as
+  soon as any booking has a payment row. It passed against a database that had only ever run
+  that suite and failed against one where anyone had paid through the app. Now truncates
+  with `CASCADE`, verified against a deliberately created paid booking.
+- **A stray `dist/tsconfig.tsbuildinfo` was committed** and `tsconfig.tsbuildinfo` was
+  tracked. Both untracked; `dist/` is not a build output of this project at all.
 - Several defects at the seams between separately generated files — a `bigint` arriving as a
   string and compared with `parseInt`, a link sending `?spot=` to a page reading `?spot_id=`,
   a query taking one parameter called with two. Each failed silently.

@@ -7,6 +7,26 @@ import pool from "../lib/db";
 import { searchAvailability } from "../lib/availability";
 
 const W = (s: string, e: string) => ({ start: s, end: e });
+
+/**
+ * TRUNCATE ... CASCADE, not DELETE.
+ *
+ * `DELETE FROM bookings` fails the moment any booking has a payment row:
+ *
+ *   error: update or delete on table "bookings" violates foreign key
+ *   constraint "payments_booking_id_fkey" on table "payments"
+ *
+ * Nothing in this file creates payments, so it passed against a database that
+ * had only ever run this suite — and failed against one where anybody had
+ * actually paid for a booking through the app or the e2e suite. That is the
+ * worst shape of test bug: green in the place you run it, red for the next
+ * person, and pointing at availability when the fault is the cleanup.
+ *
+ * Found by the fresh-clone check before v1.0.0.
+ */
+async function clearBookings() {
+  await pool.query("TRUNCATE bookings RESTART IDENTITY CASCADE");
+}
 let bayId: number;
 let areaSlug: string;
 
@@ -20,10 +40,10 @@ beforeAll(async () => {
   bayId = Number(rows[0].bay_id);
   bayLabel = rows[0].label;
   areaSlug = rows[0].slug;
-  await pool.query(`DELETE FROM bookings`);
+  await clearBookings();
 });
 
-afterAll(async () => { await pool.query(`DELETE FROM bookings`); await pool.end(); });
+afterAll(async () => { await clearBookings(); await pool.end(); });
 
 async function book(start: string, end: string, status = "confirmed", ref = Math.random().toString(36).slice(2,12).toUpperCase()) {
   await pool.query(
