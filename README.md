@@ -157,7 +157,11 @@ field/            findings, session logs, tool switches — the build's field re
 ```
 
 The API contract in [`design/openapi.yaml`](design/openapi.yaml) was written **before** any
-implementation and is binding; it validates clean under `redocly lint`.
+implementation and is binding. It **validates** under `redocly lint`, with two warnings —
+both `operation-4xx-response` on `/areas` and `/health`, which take no input and have no
+authorisation, so neither has a 4xx to return. Recorded rather than silenced: the rule is
+right in general and wrong for these two, and a suppressed warning is a warning nobody
+re-examines.
 
 ---
 

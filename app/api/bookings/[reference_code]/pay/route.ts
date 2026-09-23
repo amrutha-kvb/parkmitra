@@ -34,6 +34,7 @@ import {
   BookingResponse,
   ErrorResponse,
 } from "../../../../../lib/booking-lookup";
+import { rateLimitGuard } from "../../../../../lib/rate-limit-guard";
 
 // ---------------------------------------------------------------------------
 // SQL
@@ -105,9 +106,13 @@ const PAY_TRANSACTION_SQL = `
  * 409  → booking is already confirmed, cancelled, or expired
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ reference_code: string }> },
 ): Promise<NextResponse<BookingResponse | ErrorResponse>> {
+  // Mutating an existing booking. Scope 'mutate' (lib/rate-limit.ts).
+  const limited = await rateLimitGuard<BookingResponse | ErrorResponse>(request, "mutate");
+  if (limited) return limited;
+
   const { reference_code } = await params;
 
   // -------------------------------------------------------------------------
