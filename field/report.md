@@ -6,10 +6,10 @@
 
 ## Summary
 
-Ten findings filed against `niha-and-co/ai-platform`, all reproducible, all with verbatim
-output. Two fix PRs raised. Four further candidates were investigated and **discarded
-rather than banked**, including two of my own measurement errors, and one filed finding was
-**publicly corrected** when better evidence contradicted part of it.
+Eleven findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+verbatim output. Three fix PRs raised. Four further candidates were investigated and
+**discarded rather than banked**, including two of my own measurement errors, and one filed
+finding was **publicly corrected** when better evidence contradicted part of it.
 
 The single most useful thing this build can tell you: on day one the tool was unusable for
 about twenty hours because the organisation was out of provider credits, and on day two the
@@ -32,12 +32,14 @@ another 28 days. Most of what follows flows from those two facts.
 | F-12 | S3 | [#1030](https://github.com/niha-and-co/ai-platform/issues/1030) | `ceremony kaizen` prints a usage error and exits 0, unlike every comparable command |
 | F-13 | S2 | [#1031](https://github.com/niha-and-co/ai-platform/issues/1031) | **The governance pre-commit hook fails open silently** — every commit passed unchecked |
 | F-14 | S2 | [#1032](https://github.com/niha-and-co/ai-platform/issues/1032) | **`whoami` prints "Token: valid for 28d 23h" directly above "this credential is expired or revoked"** |
+| F-15 | S2 | [#1033](https://github.com/niha-and-co/ai-platform/issues/1033) | **`ci agent init` pins the action to `@v1`, a ref that has never existed** — generated CI fails on every PR |
 
-Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05) and
-[#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07). Both carry
+Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
+[#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
+[#1034](https://github.com/niha-and-co/ai-platform/pull/1034) (F-15). Each carries
 before-and-after output and a test that fails without the fix.
 
-### The three that matter most
+### The four that matter most
 
 **F-09 — Guardian refuses ordinary coding vocabulary.** `../lib/db` in a prompt is blocked
 as `path_traversal`; `DELETE FROM bookings` is blocked as `sql`. Both isolated against
@@ -59,6 +61,15 @@ from the JWT's own expiry and prints the server's rejection four lines below it,
 reconciling the two. This is the programme's own worked example in a different command. It
 cost me more than time: I reported part of F-13 wrongly because of it, and had to withdraw
 that publicly.
+
+**F-15 — the generated CI cannot run.** `niha ci agent init` pins
+`.github/actions/niha-ci@v1`. No such tag or branch has ever been published; every release
+is tagged in full, `v1.0.0` through `v1.2.8`. GitHub cannot resolve it, so the workflow
+fails at job setup before a single governance check runs — and the error names a missing
+action version, so it reads like the user's mistake. This is F-13's shape again in a
+different surface: **a governance product visibly not governing, while looking like it is.**
+A red check that never checked anything is the failure mode this tool should be least
+willing to ship. Fixed in #1034.
 
 ---
 
@@ -160,9 +171,13 @@ did not exist and the error went to `/dev/null`. Neither was filed against niha.
 
 1. **Move Guardian's injection checks off the prompt text and onto the operations.** It is
    the one finding that changes what the tool can be used for.
-2. **Make failure loud when governance stops governing.** F-13 is a governance product
-   quietly not governing.
-3. **Let the server's verdict win the summary line** (F-14). One contradiction in one screen
+2. **Make failure loud when governance stops governing — and notice how often it does.**
+   F-13 and F-15 are the same defect wearing different clothes: the hook that checks
+   nothing, and the CI job that cannot start. Both leave a user believing they are
+   governed. Of eleven findings, the two I would fix first are these.
+3. **Verify the refs you generate.** A generator that emits `@v1` is in a position to
+   resolve `@v1` once, at generation time (F-15).
+4. **Let the server's verdict win the summary line** (F-14). One contradiction in one screen
    produced a wrong bug report from someone actively trying to be careful.
-4. **Hold every error to the standard of the permission-denied message.** That message is
+5. **Hold every error to the standard of the permission-denied message.** That message is
    already in the product and it is very good.

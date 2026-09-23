@@ -643,3 +643,82 @@ de-scoped from the challenge. F-01's advice is defensible general product behavi
 F-04 could not be separated from F-03 while the model was down; F-02 is `src/web`, not
 the CLI; F-03 is an org credit/billing outage the team already knew about, not a defect
 I found. Only findings I can defend on their own evidence are counted above.
+
+---
+
+### F-15  `niha ci agent init` generates a workflow pinned to a ref that does not exist, so CI fails on every PR
+Severity:    S2
+Area:        CLI — ci agent, generated artifacts
+Scenario:    none
+Frequency:   every time (2/2, including a clean empty repo)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. mkdir /tmp/niha-ci-repro && cd /tmp/niha-ci-repro && git init -q .
+  2. niha ci agent init
+  3. grep -n "uses:" .github/workflows/niha-governance.yml
+  4. gh api repos/niha-and-co/ai-platform/git/ref/tags/v1     # control: does the ref exist?
+Expected:    a generated workflow runs. At minimum, the ref it pins resolves.
+Actual:
+  $ niha ci agent init
+  ✓ Created governance CI workflow:
+    /private/tmp/niha-ci-repro/.github/workflows/niha-governance.yml
+
+    Composite action: niha-and-co/ai-platform/.github/actions/niha-ci@v1
+    Fail-on threshold: blocked
+
+  $ grep -n "uses:" .github/workflows/niha-governance.yml
+  22:      - uses: actions/checkout@v4
+  28:        uses: niha-and-co/ai-platform/.github/actions/niha-ci@v1
+
+  $ gh api repos/niha-and-co/ai-platform/git/ref/tags/v1
+  {
+    "message": "Not Found",
+    "documentation_url": "https://docs.github.com/rest/git/refs#get-a-reference",
+    "status": "404"
+  }
+  gh: Not Found (HTTP 404)
+
+  $ gh api repos/niha-and-co/ai-platform/branches/v1
+  {
+    "message": "Branch not found",
+    "status": "404"
+  }
+  gh: Branch not found (HTTP 404)
+
+  $ gh api repos/niha-and-co/ai-platform/git/matching-refs/heads/v1 --jq '.[].ref'
+  (empty)
+
+Analysis:    The action directory itself exists on main, so the path is right and only the
+             ref is wrong. Every published tag is a full three-part version — v1.0.0
+             through v1.2.8 — and there is no floating major. GitHub Actions cannot
+             resolve `@v1`, so the workflow fails at job setup before a single governance
+             check runs.
+
+             The generated file's own comment reads "Bump the @v1 tag when a new release
+             of the action ships", which presents `v1` as an existing convention. It is
+             not one.
+
+             Two things make this worse than a broken default. The failure appears at the
+             job level and names a missing action version, so it reads like the user's own
+             mistake rather than the generator's. And it is a governance product: the
+             visible effect is a red check that never actually checked anything, which is
+             the same shape as F-13 — governance that has silently stopped governing.
+
+             Pinning to "the CLI's own version" would not have worked either. The shipped
+             CLI is 1.3.7 and there is no v1.3.x tag at all, so the newest release tag
+             already lags the published CLI by a minor version.
+Suggested:   Publish and maintain a floating `v1` tag. It is the convention the generated
+             file already promises, it is what `actions/checkout@v4` does one line above
+             it in the same template, and it means the generator never needs touching
+             again. Failing that, pin a tag that exists.
+
+             Separately: a generator that emits a ref is in a position to verify it.
+             Resolving the ref once at generation time would have caught this before it
+             reached any user's repository.
+Disposition: FILED (#1033) · FIX PR (#1034)
+
+Tier: T1 — fixed. The pin is now v1.2.8, the newest published tag, where the action is
+verifiably present. The existing test asserted the literal `@v1` and so passed happily
+while the product was broken; the added test asserts the shape instead, and was confirmed
+to fail against the old constant.
