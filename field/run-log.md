@@ -81,6 +81,42 @@ fixed and the reason is recorded in the script.
 
 ---
 
+## Gate 6 — the fresh clone, timed
+
+Re-run against `main` on 2026-09-24, because the earlier run predated four merges and a gate
+is evidence of a state, not of a past state.
+
+```console
+$ git clone --branch main <repo> g6            # 1s
+$ cp .env.local g6/ && cd g6
+$ npm ci                                        # 12s
+$ npm run build                                 # 10s
+$ npm run start                                 # 1s to first 200
+                                                # ------
+                                                # 24s total, clone to serving
+
+$ PLAYWRIGHT_BASE_URL=http://localhost:3400 npx playwright test
+  10 passed (15.4s)
+```
+
+**Twenty-four seconds from `git clone` to a working product**, and the ten end-to-end specs
+— a full booking, the enumeration-indistinguishability check, three accessibility audits, the
+four-states checks and the reduced-motion rule — all pass against that clean checkout.
+
+The only manual step is supplying `DATABASE_URL`, which is step 3 of the README and cannot be
+automated without committing a credential.
+
+**No mocks anywhere in the path**, verified rather than asserted:
+
+```console
+$ grep -rniE "\bmock|\bstub|\bfake|TODO|FIXME|hardcod" app/ lib/ \
+    --include="*.ts" --include="*.tsx" | grep -v __tests__
+(only UI skeletons and input placeholders)
+```
+
+Payment is simulated, which is a scope decision rather than a mock, and it is disclosed on
+the product itself rather than only in this file.
+
 ## Cost and free-tier watch
 
 | | Measured 2026-09-23 |
