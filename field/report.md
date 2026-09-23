@@ -6,7 +6,7 @@
 
 ## Summary
 
-Fifteen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+Seventeen findings filed against `niha-and-co/ai-platform`, all reproducible, all with
 verbatim output. Three fix PRs raised. Four further candidates were investigated and
 **discarded rather than banked**, including two of my own measurement errors, and one filed
 finding was **publicly corrected** when better evidence contradicted part of it.
@@ -37,6 +37,8 @@ another 28 days. Most of what follows flows from those two facts.
 | F-17 | S2 | [#1036](https://github.com/niha-and-co/ai-platform/issues/1036) | `export --json` is documented as shorthand for `--format json`, emits markdown, exits 0 |
 | F-18 | S2 | [#1037](https://github.com/niha-and-co/ai-platform/issues/1037) | **`export` reports "Total time 2s" for a 41-minute session**, contradicting its own timestamps four lines above |
 | F-19 | **S1** | [#1038](https://github.com/niha-and-co/ai-platform/issues/1038) | **23 of 36 turns failed; all 36 were counted and the session exported as "Outcome: completed"** |
+| F-20 | S2 | [#1039](https://github.com/niha-and-co/ai-platform/issues/1039) | `rules list` validates two filters and silently ignores two others, all exiting 0 |
+| F-21 | S2 | [#1040](https://github.com/niha-and-co/ai-platform/issues/1040) | `status` reports 19 governance observations; `trace --last` says none exist, and says why falsely |
 
 Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
 [#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
@@ -129,6 +131,45 @@ This is the third member of a family — F-13, F-15, F-19 — where the tool rep
 while doing nothing. It is the one I would fix first, because the failure is invisible in the
 live session *and* in the artifact produced afterwards. Reviewing a colleague's export, you
 cannot tell 36 turns of work from 13.
+
+---
+
+## The one thing I would take away from all of this
+
+Seventeen findings is a list. What is in them is one habit, missing.
+
+**Four separate findings are a summary line contradicting data the tool has already printed
+or already holds:**
+
+| | The tool says | While |
+|---|---|---|
+| [#1032](https://github.com/niha-and-co/ai-platform/issues/1032) | "Token: valid for 28d 23h" | printing "this credential is expired or revoked" four lines below |
+| [#1037](https://github.com/niha-and-co/ai-platform/issues/1037) | "Total time 2s" | printing timestamps 40m 51s apart in the same table |
+| [#1038](https://github.com/niha-and-co/ai-platform/issues/1038) | "Outcome: completed" | 23 of the session's 36 turns having failed with a hard 400 |
+| [#1040](https://github.com/niha-and-co/ai-platform/issues/1040) | "No traces yet — traces appear once agents run governed actions" | `status` reporting 19 governance observations, and naming the real reason two lines earlier |
+
+Individually each is a wording bug worth a small fix. Together they are one defect: **no
+summary line is checked against the data sitting next to it.**
+
+A second group says the same thing about exit codes. [#1020](https://github.com/niha-and-co/ai-platform/issues/1020)
+(six surfaces), [#1030](https://github.com/niha-and-co/ai-platform/issues/1030),
+[#1036](https://github.com/niha-and-co/ai-platform/issues/1036) and
+[#1039](https://github.com/niha-and-co/ai-platform/issues/1039) are all a documented flag
+accepted, ignored, and exit 0 — a failure a script cannot see.
+
+And [#1031](https://github.com/niha-and-co/ai-platform/issues/1031) and
+[#1033](https://github.com/niha-and-co/ai-platform/issues/1033)/[#1035](https://github.com/niha-and-co/ai-platform/issues/1035)
+are the same thing again at the product level: a governance hook that stopped governing and
+said so in grey, and a generated CI workflow that could never run.
+
+**Eleven of the seventeen are one sentence: the tool reports success while doing nothing, or
+reports a state it has already contradicted.** For a governance product — one whose value
+proposition is telling an organisation what is really happening in its engineering — that is
+not a cosmetic class of bug. It is the product's own failure mode, and it is the thing I
+would fix before any individual issue in the table above.
+
+I am aware this reads as a strong claim from someone who filed four findings that were wrong
+enough to withdraw. That is the next section.
 
 ---
 

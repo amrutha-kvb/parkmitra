@@ -871,3 +871,133 @@ Disposition: FILED (#1037)
 
 Tier: T2 — the duration is recoverable by hand from the two timestamps, so recorded rather
 than blocking.
+
+
+---
+
+### F-20  `niha rules list` validates two of its filters and silently ignores two others, all exiting 0
+Severity:    S2
+Area:        CLI — rules list, flag validation
+Scenario:    none
+Frequency:   every time (5/5 per flag)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run — auditing governance rules against the built product
+Steps:
+  1. niha rules list --status bogus   ; echo $?    # control: validated
+  2. niha rules list --category bogus ; echo $?    # control: validated
+  3. niha rules list --layer bogus    ; echo $?
+  4. niha rules list --limit bogus | grep -c "^[A-Z]*-[0-9]*"
+  5. niha rules list --limit -5       ; echo $?
+Expected:    a flag documented with an enum rejects a value outside it, as two of the four
+             already do. A numeric flag rejects a non-number.
+Actual:
+```console
+$ niha rules list --status bogus ; echo $?
+Input should be 'active', 'canary', 'disabled', 'expired' or 'draft'
+1
+
+$ niha rules list --category bogus ; echo $?
+Input should be 'architecture', 'code_quality', 'securi…
+1
+
+$ niha rules list --layer bogus ; echo $?
+No rules match your filters.
+0
+
+$ niha rules list               | grep -cE "^[A-Z]+-[0-9]+"   # baseline
+20
+$ niha rules list --limit 3     | grep -cE "^[A-Z]+-[0-9]+"   # works
+3
+$ niha rules list --limit bogus | grep -cE "^[A-Z]+-[0-9]+"   # ignored
+20
+$ niha rules list --limit -5 ; echo $?
+0
+```
+Analysis:    Two defects in one command, filed together because the inconsistency is the
+             point: the correct behaviour is sitting next to the incorrect one in the same
+             help screen.
+
+             `--layer` declares an enum in its own help and is not validated, so a typo
+             (`--layer platfrom`) is indistinguishable from a correct query with no results.
+             Someone auditing whether a layer has rules is told it does not.
+
+             `--limit` is the worse of the two. A script running `--limit "$N"` with `$N`
+             unset receives the FULL table and exit 0, having asked for N rows — no failure,
+             no warning, and output of an entirely plausible shape.
+
+             Third command on which the "documented flag accepted then not honoured, exit 0"
+             pattern has now appeared, after #1020 and #1036.
+
+             Separately: `--status` accepts five values and its help lists two. The only way
+             to find `canary`, `expired` and `draft` is to pass something invalid and read
+             the rejection, which makes the error message a better reference than the docs.
+Suggested:   Validate `--layer` against its declared enum the way `--status` and `--category`
+             already are. Reject a non-numeric or negative `--limit` rather than discarding
+             it — silently returning more rows than asked for is the one outcome a caller
+             cannot detect. List all five `--status` values in the help.
+Disposition: FILED (#1039)
+
+Tier: T2 — a workaround exists (check the row count yourself), so recorded rather than fixed
+mid-build.
+
+---
+
+## Extension to F-08 (#1020), not a new finding
+
+`--json` is documented and ignored on two further surfaces: `niha agents --json`, whose help
+prints `niha agents --json | jq '.agents'` as a worked example, and **`niha check --json`**,
+which is the governance gate and the command a CI pipeline runs.
+
+Recorded as a comment on #1020 rather than as F-21, because that issue argues the defect is
+"a single contract defect on four surfaces, not four defects" and it would be dishonest to
+count surfaces as findings when it suits the total. Six surfaces now; still one defect.
+
+`check` raises that issue's severity: a pipeline running `niha check --json | jq '.violations'`
+gets unparseable text and exit 0, which is indistinguishable from a clean run. Same shape as
+F-13 — a governance product reporting success while reporting nothing.
+
+
+---
+
+### F-21  `niha status` reports 19 governance observations; `niha trace --last` says none exist and gives a false reason
+Severity:    S2
+Area:        CLI — trace, governance observability
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run — inspecting governance decisions for the handover
+Steps:
+  1. niha status
+  2. niha trace --last
+  3. wc -l < .niha/ledger.jsonl
+Expected:    the command whose purpose is "Governance decision trace (X-ray)" either shows
+             the recorded decisions or explains why it cannot.
+Actual:
+```console
+$ niha status
+  Posture:   advisory (observe-only pilot — nudges + logs, never blocks)
+  Workspace: local-only (offline or not yet provisioned)
+  Ledger:    19 observations logged  ·  .niha/ledger.jsonl
+
+$ niha trace --last
+No traces yet — traces appear once agents run governed actions.
+
+$ wc -l < .niha/ledger.jsonl
+19
+```
+Analysis:    Two commands, one CLI, one workspace, one moment, disagreeing about whether any
+             governance decision exists.
+
+             The reason given is what costs time. "Traces appear once agents run governed
+             actions" is a claim about cause and it is false — 53 model turns with tool
+             calls, a pre-commit hook on every commit, 19 ledger entries. It sends the reader
+             to do what they have already done.
+
+             `status` prints the real reason two lines earlier: the workspace is local-only.
+             The tool knows; `trace` does not say it.
+Suggested:   Say what `status` already knows, or let `trace` read the local ledger when the
+             workspace is local-only — the data is on disk in a documented format and
+             showing it is the command's entire purpose.
+Disposition: FILED (#1040)
+
+Tier: T2 — the ledger is readable directly, so recorded rather than blocking.
