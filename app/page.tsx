@@ -51,8 +51,8 @@ interface Area {
 
 type AreasStatus = "loading" | "error" | "ready";
 
-/** The four duration chips. */
-const DURATION_HOURS = [1, 2, 3, 4] as const;
+/** Duration chips — covers quick stops through overnight parking (founding use case). */
+const DURATION_HOURS = [1, 2, 3, 4, 6, 8, 12] as const;
 
 /* ─────────────────────────────────────────────
    Tiny presentational helpers
@@ -502,7 +502,7 @@ export default function HomePage() {
                     setForm({ duration: selected ? null : h })
                   }
                 >
-                  {h}h
+                  {h === 12 ? "12h overnight" : `${h}h`}
                 </button>
               );
             })}

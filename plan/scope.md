@@ -50,6 +50,7 @@ Each with the reason, because "out" without a reason becomes "forgotten".
 | **Native apps** | Web only. |
 | **Multi-city, multi-language, multi-currency** | Seven areas, English, ₹. |
 | **Monthly / residential leasing** | Different transaction, different economics. |
+| **Multi-day parking** | v1 is hourly, 1-12 hours, with 12h covering the overnight case the product was founded on. Days are a deliberate *later* rather than an oversight: a multi-day stay needs different pricing, probably a deposit, and a different relationship with the building. The core of parkmitra is a quick nearby spot, not storage. |
 | **Car super-app surface** (FASTag, challans, fuel, insurance) | Permanently out. Different company. |
 
 ## Cut *during* this gate, and why
