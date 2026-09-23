@@ -13,7 +13,7 @@ Two clocks are kept separate throughout, as the programme requires: **product** 
 | Commits | 54 across all branches (25 on the 22nd, 29 on the 23rd) |
 | Tracked files | 123 |
 | Application + schema | 10,543 lines |
-| Tests | 363 lines of dedicated test files, 219 assertions passing across 12 files |
+| Tests | 237 unit assertions across 13 files, plus 17 end-to-end specs |
 | Lifecycle artifacts | 54 documents, 6,320 lines |
 
 ## By phase
@@ -26,7 +26,7 @@ Two clocks are kept separate throughout, as the programme requires: **product** 
 | 3 design | 22 Sep 20:21–20:28 | ~1h | architecture, ADR-001…003, data model, dictionary, OpenAPI, NFRs, threat model |
 | 4 UX | 22 Sep 20:28–20:36 | ~50m | flows with failure paths, wireframes, tokens, mockups, a11y plan, terminology |
 | 5 plan | 23 Sep 15:01–15:05 | ~40m | epics, backlog with acceptance criteria, DoD, test strategy, risks, sequence |
-| 6 build | 23 Sep 15:05–18:45 | ~4h30m | schema, seed, six screens, all API routes, 219 tests, deploy, fresh-clone verify |
+| 6 build | 23 Sep 15:05–18:45 | ~4h30m | schema, seed, six screens, all API routes, the test suite, deploy, fresh-clone verify |
 | 7 harden | 23 Sep 18:45–19:30 | ~1h15m | security review, a11y audit, health endpoint, alerting |
 | 8 ship | 23 Sep 19:30–20:10 | ~1h15m | v1.0.0, changelog, retrospective, this document, handover, measured performance |
 | 9 run | 23 Sep 18:58–19:04 | ~35m | runbook, rollback practised, alert fired for real |
@@ -43,6 +43,26 @@ out of provider credits and no model-backed niha call completed for roughly twen
 (F-03). The artifacts from those phases were written by hand in a single evening block. The
 programme's own rule — *"an engineer who loses a day to a T1 has their scope reduced by a
 day, not their score"* — is the reason this is recorded rather than smoothed over.
+
+## 24 September — after the quota wall
+
+The organisation's provider quota was exhausted at 23:09 on the 23rd, with access returning
+2026-10-01. Everything below was written by hand, declared in `field/tool-switches.md`.
+
+| Work | What came out of it |
+|---|---|
+| Rate limiting on every endpoint that needs it | Three endpoints had none, including the T3 surface. Per-scope buckets. **Test-first, with the failing commit visible** |
+| Accessibility audit, clause by clause | `prefers-reduced-motion` was specified in the baseline and never built |
+| Endpoint audit | `docs/endpoint-audit.md` — all 8 endpoints: inputs, validation, authorisation, throttling |
+| Contract tests | `e2e/contract.spec.ts` — the contract was called binding and nothing enforced it |
+| Gate evidence | `docs/gates.md`; Gate 6 re-timed at **24s** clone-to-serving |
+| Four states | `design/states.md`; S1's empty state existed nowhere |
+| Findings | F-15 through F-21 |
+
+Roughly **6 hours**, all of it closing gaps between what the documents claimed and what the
+code did. Five of the seven rows above are that same shape, which is worth noting given the
+field report's thesis about niha: *documents and summaries that assert things the underlying
+state does not support* was not only niha's problem on this build.
 
 ## Where the time actually went
 
