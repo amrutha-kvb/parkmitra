@@ -117,6 +117,49 @@ $ grep -rniE "\bmock|\bstub|\bfake|TODO|FIXME|hardcod" app/ lib/ \
 Payment is simulated, which is a scope decision rather than a mock, and it is disclosed on
 the product itself rather than only in this file.
 
+## The README, followed literally (2026-09-24)
+
+Gate 6 was verified against Neon, which is not what the README tells a reader to do. It says
+**local Postgres**, and that path had never been walked end to end. A judge will walk it.
+
+Every command below is copied from the README, in order, into a clean clone:
+
+```console
+$ git clone … && cd parkmitra
+$ npm install                                   exit 0
+$ cp .env.example .env.local                    exit 0
+  DATABASE_URL=postgres://localhost:5432/parkmitra_dev
+
+$ npm run db:setup
+→ database: parkmitra_dev
+  created
+→ db/migrations/001_init.sql                    ok
+→ db/migrations/002_indexes.sql                 ok
+→ db/migrations/003_bookings_amount_paise_check.sql  ok
+→ db/migrations/004_rate_limits.sql             ok
+→ db/migrations/006_rate_limit_scopes.sql       ok
+→ db/seed.sql                                   ok
+   7 areas, 20 spots, 106 bays
+✓ ready — run: npm run dev
+
+$ npm run verify                                exit 0
+  Test Files  13 passed (13)
+       Tests  237 passed (237)
+  17 passed (22.7s)
+```
+
+**No undocumented steps.** The only input a reader supplies is a running local Postgres,
+which the README states as a prerequisite.
+
+It found one defect, cosmetic: the column padding in `scripts/db-setup.sh` was 46 characters
+and the longest migration filename is 49, so `003_bookings_amount_paise_check.sql` and its
+`ok` ran together. Widened to 52. Trivial, and the kind of thing only a literal walkthrough
+surfaces — every previous run used a shorter path or read the exit code rather than the
+output.
+
+Migration `005_owners.sql` is absent here by design: it lives on the unmerged
+`feat/owner-surface` branch, and `main` is what a judge clones.
+
 ## Cost and free-tier watch
 
 | | Measured 2026-09-23 |

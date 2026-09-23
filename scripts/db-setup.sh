@@ -25,12 +25,12 @@ fi
 
 for f in db/migrations/0*.sql; do
   case "$f" in *_down.sql) continue ;; esac
-  printf "→ %-46s" "$f"
+  printf "→ %-52s" "$f"
   psql -q -v ON_ERROR_STOP=1 -d "$DB_URL" -f "$f"
   echo "ok"
 done
 
-printf "→ %-46s" "db/seed.sql"
+printf "→ %-52s" "db/seed.sql"
 psql -q -v ON_ERROR_STOP=1 -d "$DB_URL" -f db/seed.sql
 echo "ok"
 
