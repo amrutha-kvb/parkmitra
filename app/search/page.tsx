@@ -47,12 +47,14 @@
  *     page is the natural first focusable element after navigation.
  */
 
-import { useCallback, useEffect, useId, useReducer, useRef } from "react";
+import { useCallback, useEffect, useId, useReducer, useRef, Suspense } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { paiseToDisplay } from "../../lib/money";
 import type { SpotAvailability } from "../../lib/availability";
+
+
 
 /* ─────────────────────────────────────────────
    Dynamic import — Leaflet must never run on the server
@@ -64,7 +66,7 @@ import type { SpotAvailability } from "../../lib/availability";
  * server rendering would throw. The map is a progressive enhancement —
  * the list below it is the canonical path to any spot.
  */
-const SpotMap = dynamic(() => import("./SpotMap"), {
+const SpotMap = nextDynamic(() => import("./SpotMap"), {
   ssr: false,
   loading: () => (
     <div
@@ -346,7 +348,7 @@ function SpotCard({
    Page component
 ───────────────────────────────────────────── */
 
-export default function SearchPage() {
+function SearchPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -699,5 +701,21 @@ export default function SearchPage() {
         </>
       )}
     </div>
+  );
+}
+
+
+/**
+ * useSearchParams() makes this subtree client-rendered, and Next requires that
+ * to sit behind a Suspense boundary or the production build fails with
+ * "useSearchParams() should be wrapped in a suspense boundary". It only shows
+ * up at deploy time — `next dev` never prerenders — and `export const dynamic`
+ * does not help, because route-segment config is ignored in a client component.
+ */
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="state" aria-busy="true">Loading…</div>}>
+      <SearchPageInner />
+    </Suspense>
   );
 }

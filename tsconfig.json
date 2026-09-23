@@ -1,13 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
-    "outDir": "dist",
-    "rootDir": ".",
-    "declaration": true,
     "sourceMap": true,
     "jsx": "react-jsx",
     "types": [
@@ -28,7 +25,8 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "allowImportingTsExtensions": false
   },
   "include": [
     "lib",
@@ -37,6 +35,12 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    "e2e",
+    "tests",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

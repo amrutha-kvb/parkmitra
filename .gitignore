@@ -31,3 +31,6 @@ test-results/
 # playwright
 test-results/
 playwright-report/
+.vercel
+.env*
+.env.local

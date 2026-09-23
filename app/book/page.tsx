@@ -65,9 +65,11 @@
  *     and will be in viewport; assistive technology picks it up via role="alert".
  */
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { paiseToDisplay, billableHours } from "../../lib/money";
+
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -281,7 +283,7 @@ function Banner({
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function BookPage() {
+function BookPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1018,5 +1020,21 @@ export default function BookPage() {
         </form>
       )}
     </div>
+  );
+}
+
+
+/**
+ * useSearchParams() makes this subtree client-rendered, and Next requires that
+ * to sit behind a Suspense boundary or the production build fails with
+ * "useSearchParams() should be wrapped in a suspense boundary". It only shows
+ * up at deploy time — `next dev` never prerenders — and `export const dynamic`
+ * does not help, because route-segment config is ignored in a client component.
+ */
+export default function BookPage() {
+  return (
+    <Suspense fallback={<div className="state" aria-busy="true">Loading…</div>}>
+      <BookPageInner />
+    </Suspense>
   );
 }

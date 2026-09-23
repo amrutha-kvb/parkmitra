@@ -43,9 +43,11 @@
  *     programmatic focus manipulation needed here.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { paiseToDisplay } from "../../lib/money";
+
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -167,7 +169,7 @@ function DemoBanner() {
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function PayPage() {
+function PayPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ref = searchParams.get("ref") ?? "";
@@ -532,5 +534,21 @@ export default function PayPage() {
         </>
       )}
     </div>
+  );
+}
+
+
+/**
+ * useSearchParams() makes this subtree client-rendered, and Next requires that
+ * to sit behind a Suspense boundary or the production build fails with
+ * "useSearchParams() should be wrapped in a suspense boundary". It only shows
+ * up at deploy time — `next dev` never prerenders — and `export const dynamic`
+ * does not help, because route-segment config is ignored in a client component.
+ */
+export default function PayPage() {
+  return (
+    <Suspense fallback={<div className="state" aria-busy="true">Loading…</div>}>
+      <PayPageInner />
+    </Suspense>
   );
 }
