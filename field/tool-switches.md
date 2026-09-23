@@ -80,3 +80,47 @@ unexamined on the day it was generated, the finding would have surfaced as a con
 check rather than as a diagnosis.
 
 **Reversal condition:** product work returns to niha the moment the credential is valid.
+
+---
+
+## 2026-09-23 23:09 — the organisation's provider quota is exhausted; everything after this is by hand
+
+**Task:** completing the owner surface, and running the remaining long sessions (B1, B2, B3).
+
+**Switched to:** Claude Code and ordinary local tooling, for the remainder of the challenge.
+
+**Why:** not a preference. Mid-session, every model call began returning a hard 400:
+
+```
+Provider error: BadRequestError: Error code: 400 —
+'You have reached your specified API usage limits.
+ You will regain access on 2026-10-01 at 00:00 UTC.'
+```
+
+The deadline is 2026-09-25 23:59 IST. Access returns **five days after it**. There is no
+workaround available to me: this is an organisation-level limit, not a local setting.
+
+**What it cost, stated once:**
+
+- Session 3 stopped at 13 real turns of 42 planned. The owner surface has schema, an ADR, a
+  query layer, tests and one endpoint, and no UI, no e2e, no accessibility pass, and **no
+  authorisation on the endpoint that claims ownership of a spot** — the session died on the
+  prompt that addressed exactly that. The branch says so and does not merge.
+- **B1, B2 and B3 are unreachable.** B3 is the sharpest loss, because it was set up
+  correctly on day one: session 1 was reserved and left untouched specifically so it could
+  be resumed after a full day's gap. Resuming needs a model call.
+
+**Worth recording rather than resenting:** this is the same class of outage as F-03, which
+took the whole of 2026-09-22 and pushed phases 1-5 out of niha entirely. Two of the three
+things that shaped what this build could contain were provider availability, not engineering.
+The programme's own rule — *"an engineer who loses a day to a T1 has their scope reduced by a
+day, not their score"* — is why both are logged here in full rather than absorbed quietly.
+
+**It also produced the strongest finding of the build.** niha counted all 23 failed turns as
+turns, and `niha export` reports the session as `Outcome: completed`
+([#1038](https://github.com/niha-and-co/ai-platform/issues/1038)). My harness trusted
+`turnCount` and reported healthy progress for two minutes while every single request was
+being rejected. The first symptom was turns becoming suspiciously fast — nine seconds for
+"build the owner dashboard screen".
+
+**Reversal condition:** none available before the deadline.
