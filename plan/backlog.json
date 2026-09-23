@@ -1,0 +1,211 @@
+{
+  "$comment": "Plan of record from Gate 5 onward. Estimates are in VERIFICATION hours — the time to build it AND prove it, not the time to type it. The basis for each is stated, because an estimate without a basis is a wish.",
+  "generated": "2026-09-23",
+  "estimate_unit": "verification-hours",
+  "stories": [
+    {
+      "id": "S-01",
+      "epic": "E1",
+      "title": "Schema migration with the no-double-booking constraint",
+      "estimate": 1.5,
+      "basis": "The spike already proved the constraint. This is transcribing a proven design into a migration plus a rollback.",
+      "acceptance": [
+        "001_init.sql creates btree_gist, six tables, and the exclusion constraint from design/data-model.md",
+        "Every monetary column is integer and suffixed _paise",
+        "bookings has CHECK (upper(window_at) > lower(window_at)) and CHECK (amount_paise >= 0)",
+        "The migration runs on an empty database with no errors",
+        "A down migration exists and drops cleanly"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-02",
+      "epic": "E1",
+      "title": "Indexes",
+      "estimate": 0.5,
+      "basis": "Five indexes from a table already written in the data model.",
+      "acceptance": [
+        "Indexes match the Keys and indexes table in design/data-model.md",
+        "The GiST index the exclusion constraint already creates is not duplicated"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-03",
+      "epic": "E1",
+      "title": "Seed data: 7 areas, ~20 fictional spots, bays",
+      "estimate": 1.0,
+      "basis": "Data entry with invented names. Slow only because coordinates must be plausible.",
+      "acceptance": [
+        "Seven areas with Hyderabad coordinates",
+        "About twenty spots spread across all seven areas, every name invented",
+        "Between two and eight bays per spot",
+        "Prices between 2000 and 6000 paise per hour",
+        "No real business is named anywhere in the seed"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-04",
+      "epic": "E1",
+      "title": "Money helpers with the rounding rule",
+      "estimate": 1.0,
+      "basis": "Small functions, but the rounding rule is a product decision and needs tests at the boundaries.",
+      "acceptance": [
+        "paiseToDisplay renders ₹80 for 8000 and ₹80.50 for 8050",
+        "billableHours rounds part hours UP per ADR-003",
+        "Tests cover 60 minutes, 90 minutes, and exactly 120 minutes",
+        "No float arithmetic anywhere in the money path"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-05",
+      "epic": "E1",
+      "title": "Concurrency test: two racers, one winner",
+      "estimate": 1.5,
+      "basis": "The test that proves the product's promise. Needs real concurrent connections, not mocks.",
+      "acceptance": [
+        "A test fires N concurrent overlapping booking inserts against a real Postgres",
+        "Exactly one succeeds; the rest fail with the exclusion violation",
+        "The test fails if the constraint is removed",
+        "It runs in CI without Docker"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-06",
+      "epic": "E2",
+      "title": "GET /api/areas per the contract",
+      "estimate": 0.5,
+      "basis": "One query, one shape, already specified in openapi.yaml.",
+      "acceptance": [
+        "Response matches the Area schema in design/openapi.yaml exactly",
+        "A contract test asserts the shape"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-07",
+      "epic": "E2",
+      "title": "GET /api/availability — derived, single query",
+      "estimate": 2.5,
+      "basis": "The hardest query in the product: bays free for the WHOLE window, grouped to spots, with free-bay counts.",
+      "acceptance": [
+        "Returns only spots with at least one bay free for the entire window",
+        "A bay booked 10:00-12:00 is returned as free for a 12:00-14:00 window (half-open ranges)",
+        "Cancelled bookings do not block availability",
+        "400 on a malformed window or unknown area",
+        "An empty result is a 200 with an empty array, never an error",
+        "Writes a search_events row including result_count"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "S-08",
+      "epic": "E2",
+      "title": "S1 home — area chips, window picker",
+      "estimate": 2.0,
+      "basis": "Mockups exist; this is implementation plus the four states.",
+      "acceptance": [
+        "Matches design/mockups/index.html S1",
+        "Duration chips, not an end-time picker",
+        "Client-side validation blocks past windows and windows over 12 hours",
+        "All four states behave",
+        "Keyboard operable end to end, visible focus"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-09",
+      "epic": "E2",
+      "title": "S2 results — list, map, empty state",
+      "estimate": 3.0,
+      "basis": "Leaflet integration plus five states including the degraded map case.",
+      "acceptance": [
+        "Real spots from the API, with price and free-bay count",
+        "Leaflet map with a pin per spot, OSM tiles, no API key",
+        "Map failure leaves the list fully usable",
+        "Empty state offers 'another area' and 'another time' as controls",
+        "Cold-start note appears after ~3s of waiting"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-10",
+      "epic": "E3",
+      "title": "POST /api/bookings — server-computed price, 409 on race",
+      "estimate": 2.5,
+      "basis": "The endpoint carrying the guarantee. Error translation is the fiddly part.",
+      "acceptance": [
+        "Price is computed server-side; an amount in the request body is ignored",
+        "Reference code is CSPRNG, 10 chars Crockford base32, unique",
+        "Exclusion violation returns 409 with error code bay_unavailable, never 500",
+        "Window outside the spot's opening hours returns 422",
+        "A test asserts a posted amount_paise of 0 does not change the charge"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-11",
+      "epic": "E3",
+      "title": "S3 book — bay chooser, details, price summary",
+      "estimate": 2.5,
+      "basis": "Form plus the 409 recovery path, which returns to a re-run search rather than a stale list.",
+      "acceptance": [
+        "Bay labels shown and selectable",
+        "Price summary states the round-up rule on screen",
+        "409 shows the real message and returns to a re-run search",
+        "Double submit is prevented",
+        "Form contents survive an error"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-12",
+      "epic": "E3",
+      "title": "S4 pay (simulated) + S5 confirmation",
+      "estimate": 2.0,
+      "basis": "Two screens, one state transition, plus the standing demo banner.",
+      "acceptance": [
+        "A payments row is created and the booking becomes confirmed",
+        "The demo banner is present and not dismissible on every state of S4",
+        "S5 shows the reference code as the largest element, monospace, grouped, copyable",
+        "Repeat pay forwards to S5 rather than erroring"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-13",
+      "epic": "E4",
+      "title": "S6 lookup + arrival, with enumeration controls",
+      "estimate": 2.0,
+      "basis": "Simple screens; the security behaviour is what needs care and tests.",
+      "acceptance": [
+        "A wrong code and an unknown code return identical responses",
+        "Rate limited, returning 429 with a usable message",
+        "Marking arrival twice is idempotent from the driver's view",
+        "arrived_at is set, feeding the north-star metric"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "S-14",
+      "epic": "E4",
+      "title": "End-to-end test through the real flow, no mocks",
+      "estimate": 2.0,
+      "basis": "Playwright against a running app and a real database. This is the phase 6 exit condition.",
+      "acceptance": [
+        "One Playwright run: pick area, search, choose bay, book, pay, see code, look it up, mark arrival",
+        "Runs against real Postgres with no mocked HTTP or database",
+        "Fails if any step regresses"
+      ],
+      "status": "todo"
+    }
+  ],
+  "totals": {
+    "stories": 14,
+    "estimate_hours": 24.5,
+    "$comment": "24.5 verification-hours against roughly two and a half days, alongside the long-session protocol, hardening, deploy, demo and the field report. This is over-committed and known to be: plan/sequence.md names what gets dropped first if it has to give."
+  }
+}

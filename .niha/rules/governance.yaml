@@ -1,0 +1,6 @@
+# niha governance — effective rules for this project.
+# Advisory (observe-only) for the pilot: governance nudges + logs, never hard-blocks.
+# Inherits the platform baseline ruleset; `niha check` / workspace sync refresh the live set here.
+posture: advisory
+inherits: platform-baseline   # 20 platform rules (code-quality, security, testing, docs, ci/cd, agents)
+rules: []                     # workspace + project rules sync into this list
