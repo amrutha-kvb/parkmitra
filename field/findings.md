@@ -311,6 +311,180 @@ scanned for attack signatures instead of the operations the agent attempts.
 
 ---
 
+### F-10  `niha assess` fails with "Error: requires 'assess'", a message that names neither the cause nor a remedy
+Severity:    S2
+Area:        CLI — assess
+Scenario:    none
+Frequency:   every time (4/4, including with --json and --verbose)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7, org AI Challenge Q3 2026, role capability_builder, trust L1
+Phase:       6, build
+Steps:
+  1. cd into a project with a resolved workspace (niha status shows the project and a ledger)
+  2. niha assess
+  3. niha assess --verbose
+Expected:    a governance score, as the setup guide promises: "niha assess — Your governance score for this project, one to five. Useful as a starting baseline." Or, if the command is unavailable to this role or plan, an error saying which and what to do about it.
+Actual:
+  $ niha assess
+    ⠋ Scanning governance posture...
+    ⠙ Detected: TypeScript + GitHub Actions · 1 CI workflow · 0 agent configs
+  Error: requires 'assess'
+
+  $ echo $?
+  1
+
+  $ niha assess --verbose
+    ⠹ Detected: TypeScript + GitHub Actions · 1 CI workflow · 0 agent configs
+  Error: requires 'assess'
+
+  $ niha whoami
+    Role:      capability_builder
+    Trust:     L1
+
+  For contrast, `niha check` on the same workspace in the same minute works and
+  returns 20 passing rules, so the workspace itself resolves fine.
+Impact:      `niha assess` is one of the five commands the setup guide tells a new user to
+             run first, and it is the one that produces the headline governance number.
+             It fails after appearing to work — the scan completes and reports what it
+             detected, then the command dies on a string that reads like an internal
+             assertion. "requires 'assess'" does not say whether that is a permission, a
+             plan entitlement, a workspace feature or a missing argument, and offers
+             nothing to try. ~15 minutes spent checking role, trust level, workspace state
+             and flags before concluding the message simply cannot be acted on.
+             The tool clearly can do better: when a non-interactive run hits a permission
+             gate it prints "this call needs confirmation and this is a non-interactive run
+             ... Add one to .niha/settings.local.json, or run it in the niha REPL. For a
+             one-off, pass --permission-mode auto." That message names the cause, the fix
+             and a one-off workaround. This one names nothing.
+Suggested:   Say what is required and how to obtain it — for example "assess requires the
+             'assess' capability, which your role (capability_builder) does not have; ask
+             an org admin to grant it" — and exit before the scan rather than after, so the
+             user is not shown progress for work that cannot complete. If the requirement
+             is a plan or entitlement rather than a role, name that instead.
+Disposition: FILED (#1028)
+
+Tier: T2 — no workaround for the score itself, but `niha check` covers the adjacent need,
+so recorded and characterised rather than fixed mid-build.
+
+---
+
+### F-11  A failing governance check cannot be traced back to a rule: `check` prints UUIDs, `rules list` prints short ids, and the advertised `rules show` does not exist
+Severity:    S2
+Area:        CLI — check / rules
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       6, build
+Steps:
+  1. niha check
+  2. niha rules list
+  3. niha rules show CICD-001
+Expected:    the identifier a check result prints can be used to look that rule up, so a failing CI gate can be understood and fixed.
+Actual:
+  $ niha check
+    Passed (20)
+    ✓ 900a941b-f3f8-5333-ab93-8f1b47909a9a Branch protection enabled
+    ✓ 90e864dc-0856-5a2a-9b01-2c0e378cebd1 No SQL string concatenation
+    ✓ 90d4b5a8-2829-5de3-a171-4daa1ec6b386 Minimum test coverage
+
+  $ niha rules list
+  Rule ID    Name                     Layer       Category        Zone    Status
+  ─────────  ───────────────────────  ──────────  ──────────────  ──────  ────────
+  CICD-001   Branch protection en...  org         ci_cd           4       active
+  SEC-003    Input validation on ...  org         security        3       active
+
+  $ niha rules show CICD-001
+  error: unknown command 'show'
+  (run `niha --help` to see available commands)
+  $ echo $?
+  1
+
+  $ niha rules --help
+  Commands:
+    list [options]       Show effective rules table
+    diff [options]       Show recent rule changes
+    effective [options]  Full inheritance view — rules grouped by category with source labels
+    help [command]       display help for command
+
+  But the interactive session's own /help advertises it:
+  /rules — Inspect governance rules — /rules [list | effective | show <id>]
+Impact:      Three things compound. "Branch protection enabled" is
+             `900a941b-f3f8-5333-ab93-8f1b47909a9a` in `check` and `CICD-001` in
+             `rules list` — the same rule under two identifier schemes, with no command
+             that maps between them. `rules list` truncates the names
+             ("Branch protection en..."), so matching on name is unreliable too. And
+             `rules show <id>`, the obvious way out, is advertised in the REPL's `/help`
+             but does not exist on the CLI.
+             This matters most where the product is meant to earn its keep: `niha check
+             --ci` is documented as a pipeline gate. When it fails in CI, the engineer
+             gets a UUID, and there is no supported way to turn that UUID into the rule's
+             text, rationale or remedy. ~20 minutes establishing that the two id schemes
+             do not meet and that the documented lookup is missing.
+Suggested:   Print the short id (`CICD-001`) in `check` output, or print both. Either way
+             the identifier a failure reports must be the one `rules` accepts. Implement
+             `niha rules show <id>` accepting either form, since the REPL help already
+             promises it — or remove it from that help. Stop truncating names in
+             `rules list`, or add a `--no-truncate`, so name matching is at least a
+             viable fallback.
+Disposition: FILED (#1029)
+
+Tier: T2 — a workaround exists (match on the visible part of the name), so recorded and
+characterised rather than fixed mid-build.
+
+---
+
+### F-12  `niha ceremony kaizen` reports a usage error but exits 0, so a script cannot tell it failed
+Severity:    S3
+Area:        CLI — ceremony, exit codes
+Scenario:    none
+Frequency:   every time (3/3)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       6, build
+Steps:
+  1. niha --help                      # note the documented form
+  2. niha ceremony kaizen ; echo $?
+  3. niha trace ; echo $?             # control: the same kind of usage error
+Expected:    a usage error exits non-zero, as every other command in the CLI does.
+Actual:
+  $ niha --help | grep ceremony
+      ceremony kaizen      Kaizen Cycle (preview auto-generated agenda)
+
+  $ niha ceremony kaizen
+  Usage: niha ceremony kaizen --preview
+  $ echo $?
+  0
+
+  Controls — the same class of error on three other commands, all correct:
+  $ niha trace            → exit 1 | Usage: niha trace <id> | --last | --pr <number>
+  $ niha rules show X     → exit 1 | error: unknown command 'show'
+  $ niha agent status zzz → exit 1 | Agent not found: zzz
+
+  And with the flag it asks for:
+  $ niha ceremony kaizen --preview
+  Kaizen agenda preview is not available yet — the platform endpoint doesn't exist.
+  Tracked as a follow-up (S1-140 — /api/v1 kaizen preview).
+  $ echo $?
+  0
+Impact:      Low severity but a real trap, and it is the quiet kind. `niha --help` lists
+             `ceremony kaizen` as the command, so that is what a person or a script will
+             run. It prints a usage line to say it is wrong, then reports success. Any
+             wrapper using `set -e`, `&&`, or a CI step that checks the exit status treats
+             a failed invocation as a pass. The rest of the CLI gets this right, which is
+             what makes it a defect rather than a convention — `niha trace` in exactly the
+             same situation exits 1.
+             Secondary, same command: the correct invocation also exits 0 while reporting
+             that the feature does not exist yet. "Not implemented" and "worked" should not
+             be indistinguishable to a caller.
+Suggested:   Exit non-zero on the usage error, matching `trace`, `rules` and
+             `agent status`. Decide deliberately what `--preview` should return while the
+             endpoint is missing — a non-zero exit with the same explanatory message would
+             be honest, and leaves room for a caller to branch on it. If the subcommand is
+             not usable at all yet, consider not advertising it in `niha --help`.
+Disposition: FILED (#1030)
+
+Tier: T3 — cosmetic in effect, recorded rather than fixed mid-build.
+
+---
+
 ## Withdrawn
 
 F-01 (#1012) and F-04 (#1014) are closed, and F-02 (#1010) and F-03 (#1013) are
