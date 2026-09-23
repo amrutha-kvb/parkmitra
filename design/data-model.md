@@ -1,6 +1,6 @@
 # Data model
 
-Six tables. Availability is derived, never stored (see `design/options.md`).
+Seven tables. Availability is derived, never stored (see `design/options.md`).
 
 ## ERD
 
@@ -30,6 +30,20 @@ Six tables. Availability is derived, never stored (see `design/options.md`).
 │ opens_at, closes_at   ← local time-of-day bookable window
 │ is_active    │
 └──────┬───────┘
+       │ 1                          1
+       │                            │
+       │ n                     0..1 │
+       │              ┌─────────────▼──────────┐
+       │              │        owners          │  ADR-004
+       │              │────────────────────────│
+       │              │ id          PK         │
+       │              │ spot_id     FK UQ(active)─┘
+       │              │ owner_token UQ         │  ← the capability
+       │              │ owner_phone            │  ← PERSONAL DATA
+       │              │ owner_name             │  ← PERSONAL DATA
+       │              │ is_active              │
+       │              │ created_at             │
+       │              └────────────────────────┘
        │ 1
        │
        │ n
@@ -100,6 +114,8 @@ load-bearing.
 | `bookings` | GiST `(bay_id, window_at)` | **created by the exclusion constraint itself** — it is also the index the availability query uses, so the guarantee and the query share one structure |
 | `bookings` | `(status, upper(window_at))` | expiring `pending` rows at read time |
 | `search_events` | `(created_at)` | retention sweep + metrics |
+| `owners` | `UNIQUE (owner_token)` | the lookup path — resolve token to spot |
+| `owners` | `UNIQUE (spot_id) WHERE is_active` | one active token per spot; also the join path |
 
 ## Retention
 
@@ -109,6 +125,7 @@ load-bearing.
 | `payments` | with the booking | Simulated in v1, but the retention rule is written for when it is not. |
 | `search_events` | 90 days | Only needed for the empty-result metric. Contains no personal data by design — `session_id` is a random per-visit value, not a user id. |
 | `areas`, `spots`, `bays` | indefinitely | Reference data, fictional in v1. |
+| `owners` incl. personal data | indefinitely | Operational record of who controls a spot. `owner_phone` and `owner_name` are nulled if the owner relationship ends; the row is kept (never hard-deleted) so token revocation history is preserved. |
 
 Retention is documented here and **not implemented in v1** — there is no sweeper job (see
 architecture: no background workers). Stated as a known gap rather than implied.

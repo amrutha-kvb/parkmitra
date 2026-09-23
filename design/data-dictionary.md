@@ -2,9 +2,9 @@
 
 Every field, its type, its meaning, and whether it holds personal data.
 
-**PD** = personal data. In v1 that is only ever on `bookings`, and it is only ever three
-fields. Keeping that list short is deliberate: the fewer places it lives, the fewer places
-it can leak.
+**PD** = personal data. It lives in two tables: three fields on `bookings` (driver side)
+and two fields on `owners` (supply side). Keeping that list short is deliberate: the fewer
+places it lives, the fewer places it can leak.
 
 ---
 
@@ -96,15 +96,38 @@ walked back casually.
 Deliberately contains **no** personal data and no IP address. It exists to answer "which
 areas have no supply", which needs none.
 
+## owners
+
+| Field | Type | Meaning | PD |
+|---|---|---|---|
+| `id` | `bigserial` PK | Surrogate key | no |
+| `spot_id` | `bigint` FK → spots | Which spot this token controls. Unique among active rows — enforced by a partial unique index, not a table-level constraint, so a revoked row does not block its replacement. | no |
+| `owner_token` | `text` UNIQUE | CSPRNG-generated, 10+ chars Crockford base32, ≈50 bits. **This is the authorisation** — treat as a secret (ADR-004). Same rules as `reference_code`: never in logs, page titles, analytics events, or referrer headers. | no, but **secret** |
+| `owner_phone` | `text` NULL | Contact phone for the person who was handed the token. Operational field for the team — **not** a lookup key. No endpoint accepts a phone number to find an owner. | **yes** |
+| `owner_name` | `text` NULL | Name of the person who was handed the token. Same operational purpose as `owner_phone`. | **yes** |
+| `is_active` | `boolean` | Revocation flag. Set `false` to revoke; insert a new row with a fresh token. Never hard-delete — the row is the audit trail. | no |
+| `created_at` | `timestamptz` | | no |
+
+Created at onboarding, which is manual in v1 (the team generates the token and hands it
+over out of band). A spot with no row in `owners` is unowned — unreachable from the owner
+surface but fully functional on the driver side.
+
 ---
 
 ## Summary: where personal data lives
 
-Exactly three columns, in one table: `bookings.driver_phone`, `bookings.driver_name`,
-`bookings.vehicle_reg`.
+Five columns, in two tables:
 
-Consequences carried into `design/threat-model.md`:
-- They are readable only by presenting the `reference_code`
-- They must never appear in logs, error messages, URLs, page titles, or map tile requests
-- They are nulled 12 months after the booking window ends (documented; not implemented in
-  v1 — no sweeper)
+- `bookings.driver_phone`, `bookings.driver_name`, `bookings.vehicle_reg`
+- `owners.owner_phone`, `owners.owner_name`
+
+**Driver PD** (bookings) — carried into `design/threat-model.md`:
+- Readable only by presenting the `reference_code`
+- Must never appear in logs, error messages, URLs, page titles, or map tile requests
+- Nulled 12 months after the booking window ends (documented; not implemented in v1 —
+  no sweeper)
+
+**Owner PD** (owners):
+- Readable only by presenting the `owner_token` (ADR-004)
+- Same log/URL/page-title rules as driver PD
+- Nulled when the owner relationship ends; the row is kept for revocation history

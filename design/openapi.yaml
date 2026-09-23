@@ -43,6 +43,12 @@ tags:
       Create and read bookings. Reads and mutations are authorised by holding the
       booking's reference_code, which is a path parameter rather than a security
       scheme — see ADR-002.
+  - name: owner
+    description: >
+      Supply-side surface. Authorised by holding the spot's owner_token, which
+      is a capability token with the same entropy and rules as the driver's
+      reference_code — see ADR-004. No endpoint accepts a spot id, phone number,
+      or name as a lookup key.
 
 paths:
 
@@ -236,6 +242,122 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /owners:
+    post:
+      tags: [owner]
+      operationId: createOwner
+      summary: Onboard an owner for a spot
+      description: |
+        Creates an owner row and returns the generated owner_token exactly once.
+        The token is never retrievable again — if the caller does not capture it
+        from this response, the only recovery is to revoke and re-create.
+
+        In v1 this is called by the team during manual onboarding, not by the
+        owner themselves. It is an API endpoint rather than a SQL script so that
+        the token generation and the uniqueness constraint are exercised through
+        the same code path the owner surface will use.
+
+        Returns 409 when the spot already has an active owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OwnerCreateRequest" }
+      responses:
+        "201":
+          description: |
+            Created. The `owner_token` in this response is the only time the
+            token is ever returned — it is not recoverable. Treat it as a
+            secret and hand it to the owner out of band.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerCreateResponse" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: This spot already has an active owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: owner_exists
+                message: This spot already has an active owner.
+
+  /owner/{owner_token}:
+    get:
+      tags: [owner]
+      operationId: getOwnerSpot
+      summary: Read the spot belonging to this owner token
+      description: |
+        Resolves the owner_token to the spot it controls, including bay counts.
+        Returns 404 identically whether the token never existed or was revoked —
+        distinguishing them would confirm valid tokens to someone guessing.
+
+        Rate limited on the same terms as the booking lookup: 20 requests per
+        minute per IP.
+      parameters:
+        - name: owner_token
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: The spot this token controls
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerSpot" }
+        "404":
+          description: |
+            No active owner for that token. Deliberately identical whether the
+            token never existed or was revoked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /owner/{owner_token}/bookings:
+    get:
+      tags: [owner]
+      operationId: listOwnerBookings
+      summary: All non-cancelled bookings for this owner's spot
+      description: |
+        Returns every non-cancelled booking for the bays belonging to this
+        owner's spot, newest first. Includes driver personal data (phone, name,
+        vehicle registration) because the owner needs to know who is arriving
+        at their building.
+
+        This is why a leaked owner token has a larger blast radius than a leaked
+        driver reference code — it exposes every driver who booked at that spot,
+        not just one. See ADR-004.
+      parameters:
+        - name: owner_token
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: |
+            Bookings for this spot. An empty array is valid — it means no one
+            has booked yet, not an error.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bookings]
+                properties:
+                  bookings:
+                    type: array
+                    items: { $ref: "#/components/schemas/OwnerBooking" }
+        "404":
+          description: |
+            No active owner for that token. Same indistinguishable-404 rule.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /health:
     get:
@@ -432,6 +554,121 @@ components:
         bay_label: { type: string, example: B-12 }
         address_line: { type: string }
         arrived_at: { type: [string, "null"], format: date-time }
+
+    OwnerCreateRequest:
+      type: object
+      required: [spot_id]
+      properties:
+        spot_id:
+          type: integer
+          format: int64
+          description: The spot to onboard an owner for.
+        owner_phone:
+          type: [string, "null"]
+          example: "+919876543210"
+          description: Personal data. Operational contact — not a lookup key.
+        owner_name:
+          type: [string, "null"]
+          example: Ravi Sharma
+          description: Personal data. Who was handed the token.
+
+    OwnerCreateResponse:
+      type: object
+      required: [owner_token, spot_id]
+      description: |
+        Returned exactly once, at creation. The owner_token is never
+        retrievable again — this response is the only time it appears.
+      properties:
+        owner_token:
+          type: string
+          example: 7K2M9QX4TB
+          description: |
+            The capability token. Treat as a secret. Hand it to the owner
+            out of band. This is the only time it is ever returned.
+        spot_id: { type: integer, format: int64 }
+        owner_phone:
+          type: [string, "null"]
+          description: Personal data.
+        owner_name:
+          type: [string, "null"]
+          description: Personal data.
+
+    OwnerSpot:
+      type: object
+      required:
+        [spot_id, spot_name, kind, address_line, lat, lng,
+         price_per_hour_paise, opens_at, closes_at, is_active,
+         total_bays, active_bays]
+      properties:
+        spot_id: { type: integer, format: int64 }
+        spot_name:
+          type: string
+          example: Zenith Galleria Parking
+        kind:
+          type: string
+          enum: [mall, apartment, office, gym, commercial]
+        address_line: { type: string }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        price_per_hour_paise:
+          type: integer
+          example: 5000
+          description: Paise. 5000 = ₹50.00.
+        opens_at:
+          type: string
+          example: "07:00:00"
+          description: Earliest bookable local time.
+        closes_at:
+          type: string
+          example: "23:00:00"
+          description: Latest bookable local time.
+        is_active:
+          type: boolean
+          description: Whether the spot is visible to drivers.
+        total_bays:
+          type: integer
+          minimum: 0
+          description: All bays, including deactivated ones.
+        active_bays:
+          type: integer
+          minimum: 0
+          description: Bays currently visible and bookable.
+
+    OwnerBooking:
+      type: object
+      required:
+        [booking_id, reference_code, bay_label, status, window,
+         amount_paise, driver_phone, vehicle_reg, created_at]
+      description: |
+        A booking as seen by the owner. Includes driver personal data (phone,
+        name, vehicle registration) that the driver-facing Booking schema does
+        not expose. This is intentional — the owner needs to know who is arriving.
+      properties:
+        booking_id: { type: integer, format: int64 }
+        reference_code:
+          type: string
+          example: 7K2M9QX4TB
+          description: The driver's capability code. Treat as a secret.
+        bay_label: { type: string, example: B-12 }
+        status:
+          type: string
+          enum: [pending, confirmed, expired]
+          description: Cancelled bookings are never returned.
+        window: { $ref: "#/components/schemas/Window" }
+        amount_paise: { type: integer, example: 10000 }
+        driver_phone:
+          type: string
+          example: "+919876543210"
+          description: Personal data.
+        driver_name:
+          type: [string, "null"]
+          description: Personal data. Optional.
+        vehicle_reg:
+          type: string
+          example: TS09AB1234
+          description: Personal data.
+        arrived_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
 
     Error:
       type: object
