@@ -230,6 +230,43 @@ export default function HomePage() {
         >
           Park near where you're going.
         </div>
+
+        {/* ── One-liner concept explanation ── */}
+        <p
+          style={{
+            fontSize: "var(--text-sm)",
+            color: "var(--ink-700)",
+            lineHeight: "var(--leading-body)",
+            marginTop: "var(--space-1)",
+          }}
+        >
+          Malls, apartment blocks and gyms have bays sitting empty for hours —
+          find one nearby and book it by the hour.
+        </p>
+
+        {/* ── How it works — single compact line ── */}
+        <p
+          style={{
+            fontSize: "var(--text-xs)",
+            color: "var(--ink-500)",
+            marginTop: "var(--space-1)",
+          }}
+        >
+          Pick an area and a window, choose a bay, arrive with your code.
+        </p>
+
+        {/* ── Demo notice — simulated-pay-banner tokens ── */}
+        <p
+          className="simulated-pay-banner"
+          role="note"
+          style={{ marginTop: "var(--space-1)" }}
+        >
+          <span aria-hidden="true">ℹ︎</span>
+          <span>
+            <strong>This is a demo.</strong> Every parking spot listed here is
+            fictional and no real business is named. No real payment is taken.
+          </span>
+        </p>
       </div>
 
       {/* ── Live region — announces validation errors to screen readers ── */}
