@@ -6,7 +6,7 @@
 
 ## Summary
 
-Eleven findings filed against `niha-and-co/ai-platform`, all reproducible, all with
+Twelve findings filed against `niha-and-co/ai-platform`, all reproducible, all with
 verbatim output. Three fix PRs raised. Four further candidates were investigated and
 **discarded rather than banked**, including two of my own measurement errors, and one filed
 finding was **publicly corrected** when better evidence contradicted part of it.
@@ -33,6 +33,7 @@ another 28 days. Most of what follows flows from those two facts.
 | F-13 | S2 | [#1031](https://github.com/niha-and-co/ai-platform/issues/1031) | **The governance pre-commit hook fails open silently** — every commit passed unchecked |
 | F-14 | S2 | [#1032](https://github.com/niha-and-co/ai-platform/issues/1032) | **`whoami` prints "Token: valid for 28d 23h" directly above "this credential is expired or revoked"** |
 | F-15 | S2 | [#1033](https://github.com/niha-and-co/ai-platform/issues/1033) | **`ci agent init` pins the action to `@v1`, a ref that has never existed** — generated CI fails on every PR |
+| F-16 | S2 | [#1035](https://github.com/niha-and-co/ai-platform/issues/1035) | **The same generated workflow references an action in a private repo**, so no consumer's runner can resolve it |
 
 Fix PRs: [#1019](https://github.com/niha-and-co/ai-platform/pull/1019) (F-05),
 [#1021](https://github.com/niha-and-co/ai-platform/pull/1021) (F-07) and
@@ -62,14 +63,23 @@ reconciling the two. This is the programme's own worked example in a different c
 cost me more than time: I reported part of F-13 wrongly because of it, and had to withdraw
 that publicly.
 
-**F-15 — the generated CI cannot run.** `niha ci agent init` pins
+**F-15 and F-16 — the generated CI cannot run, for two independent reasons.** `niha ci agent init` pins
 `.github/actions/niha-ci@v1`. No such tag or branch has ever been published; every release
 is tagged in full, `v1.0.0` through `v1.2.8`. GitHub cannot resolve it, so the workflow
 fails at job setup before a single governance check runs — and the error names a missing
 action version, so it reads like the user's mistake. This is F-13's shape again in a
 different surface: **a governance product visibly not governing, while looking like it is.**
 A red check that never checked anything is the failure mode this tool should be least
-willing to ship. Fixed in #1034.
+willing to ship.
+
+Then I fixed the ref (#1034), pushed the workflow to a real repository, and watched it fail
+again — `Unable to resolve action niha-and-co/ai-platform, not found`. The repository
+holding the action is **private**, and a runner authenticates with its own repository's
+token, not the user's. So the generated workflow cannot run for any consumer whatever ref
+it carries (F-16, #1035).
+
+I have said so on my own PR. It would have been easy to let #1034 stand as "fixes the
+generated CI", and it does not.
 
 ---
 
@@ -175,8 +185,10 @@ did not exist and the error went to `/dev/null`. Neither was filed against niha.
    F-13 and F-15 are the same defect wearing different clothes: the hook that checks
    nothing, and the CI job that cannot start. Both leave a user believing they are
    governed. Of eleven findings, the two I would fix first are these.
-3. **Verify the refs you generate.** A generator that emits `@v1` is in a position to
-   resolve `@v1` once, at generation time (F-15).
+3. **Run the artifacts you generate, once, against a real runner.** F-15 and F-16 were both
+   invisible until the workflow was actually pushed. A generator that emits a ref can
+   resolve that ref; a team that ships a composite action can run the generated workflow in
+   a repository outside the org, which is the only place either defect shows up.
 4. **Let the server's verdict win the summary line** (F-14). One contradiction in one screen
    produced a wrong bug report from someone actively trying to be careful.
 5. **Hold every error to the standard of the permission-denied message.** That message is

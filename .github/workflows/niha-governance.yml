@@ -12,10 +12,20 @@
 #      running anything. Filed as niha-and-co/ai-platform#1033, fixed upstream
 #      in #1034. Pinned here to v1.2.8, where the action verifiably exists.
 #
-#   2. The governance step is guarded on NIHA_API_KEY being present. This repo
-#      has no niha credential in its secrets, and a job that fails for a missing
-#      secret is indistinguishable at a glance from a job that failed a
-#      governance check. It skips visibly instead.
+#   2. The whole job is gated on the repository variable NIHA_CI_ENABLED, which
+#      is not set here, so it skips.
+#
+#      A step-level `if:` was tried first and does NOT work. GitHub resolves
+#      every `uses:` in a job at job SETUP, before any step condition is
+#      evaluated, so the job still failed with:
+#
+#        Unable to resolve action `niha-and-co/ai-platform`, not found
+#
+#      That error is itself the second half of the problem: ai-platform is a
+#      PRIVATE repository, so no external consumer's runner can resolve this
+#      action at all, whatever ref it is pinned to. Filed separately.
+#      The gate has to be at job level for the job to be skipped rather than
+#      failed.
 #
 # The file exactly as generated is kept at
 # field/artifacts/niha-generated-workflow.yml, as the evidence for #1033.
@@ -30,28 +40,18 @@ jobs:
   governance:
     name: Governance Check
     runs-on: ubuntu-latest
+    # Job level, not step level - see the note at the top of this file.
+    if: vars.NIHA_CI_ENABLED == 'true'
     permissions:
       contents: read
       pull-requests: write   # required to post the PR comment
-    env:
-      # The secrets context cannot be used in a job-level `if`, so it is mapped
-      # to env here and tested per step.
-      HAS_NIHA_KEY: ${{ secrets.NIHA_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Note when governance is not configured
-        if: env.HAS_NIHA_KEY != 'true'
-        run: |
-          echo "::notice::NIHA_API_KEY is not set — governance did not run."
-          echo "This is a skip, not a pass. See field/report.md."
-
       - name: Install niha CLI
-        if: env.HAS_NIHA_KEY == 'true'
         run: npm install -g @niha-and-co/niha
 
       - name: Run niha governance
-        if: env.HAS_NIHA_KEY == 'true'
         uses: niha-and-co/ai-platform/.github/actions/niha-ci@v1.2.8
         with:
           api-key: ${{ secrets.NIHA_API_KEY }}

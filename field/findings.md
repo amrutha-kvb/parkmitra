@@ -722,3 +722,56 @@ Tier: T1 — fixed. The pin is now v1.2.8, the newest published tag, where the a
 verifiably present. The existing test asserted the literal `@v1` and so passed happily
 while the product was broken; the added test asserts the shape instead, and was confirmed
 to fail against the old constant.
+
+---
+
+### F-16  The generated workflow references a composite action in a PRIVATE repo, so it cannot run in any consumer repository
+Severity:    S2
+Area:        CLI — ci agent, generated artifacts
+Scenario:    none
+Frequency:   every time (1/1 against a real runner; deterministic by construction)
+Environment: macOS 26.2 (Darwin 25.2.0), VS Code integrated terminal, zsh 5.9, niha v1.3.7
+Phase:       9, run
+Steps:
+  1. niha ci agent init
+  2. Commit the generated workflow and push it to a repository you own.
+  3. Open a pull request. Read the Governance Check job.
+Expected:    the generated workflow runs, or the generator says what else is required.
+Actual:
+  X phase-9/run niha Governance amrutha-kvb/parkmitra#16 · 35876662617
+  Triggered via pull_request
+
+  JOBS
+  X Governance Check in 3s
+
+  ANNOTATIONS
+  X Unable to resolve action `niha-and-co/ai-platform`, not found
+
+  $ gh api repos/niha-and-co/ai-platform --jq '{private:.private, visibility:.visibility}'
+  {"private":true,"visibility":"private"}
+
+Analysis:    Separate from F-15, and not fixed by it. F-15 was a ref that does not exist;
+             this is a repository the runner cannot read. A workflow authenticates with its
+             OWN repository's GITHUB_TOKEN, which has no access to a private repo belonging
+             to someone else. My account can read ai-platform interactively — it is how the
+             fix PRs were raised — but the runner does not use my credentials.
+
+             The two compound. Pinning the ref (PR #1034) was necessary and still leaves the
+             generated workflow unable to run for any consumer.
+
+             A trap worth recording separately: a step-level `if:` guard does NOT prevent
+             this. GitHub resolves every `uses:` in a job at job SETUP, before step
+             conditions are evaluated, so the job fails identically. The gate has to be at
+             job level. This cost me one failed run to discover and is not obvious.
+Suggested:   Publish the action — a small public repo, or the Marketplace. That is what
+             `actions/checkout@v4`, one line above it in the same generated file, already
+             does. Alternatively ship the logic in the CLI and have the workflow call
+             `npx @niha-and-co/niha ci run`, since the workflow already installs the CLI in
+             the preceding step. At minimum, say so: the command prints three "Next steps"
+             and none of them mentions that the workflow cannot resolve its action outside
+             this organisation.
+Disposition: FILED (#1035)
+
+Tier: T2 — worked around in this repository by gating the whole job on a repository
+variable, so it skips visibly rather than failing red. Not fixable from outside the org:
+publishing the action is a decision for whoever owns it.
