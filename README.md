@@ -5,7 +5,7 @@
 Malls, apartment blocks and gyms have bays sitting empty for hours. parkmitra finds one
 near where you are going and holds it by the hour.
 
-🔗 **Live:** https://parkmitra-9vqz8xfx7-kamrutha4774gmailcoms-projects.vercel.app
+🔗 **Live:** https://parkmitra-nu.vercel.app
 
 ---
 
@@ -81,8 +81,17 @@ npm run verify        # typecheck + unit/integration tests + end-to-end
 The e2e suite can be pointed at any deployment:
 
 ```bash
-PLAYWRIGHT_BASE_URL=https://your-deployment.vercel.app npm run test:e2e
+PLAYWRIGHT_BASE_URL=https://parkmitra-nu.vercel.app npm run test:e2e
 ```
+
+**One run at a time per database.** The suites talk to a real Postgres and several of them
+truncate `bookings`, so two concurrent runs against the same `DATABASE_URL` will wipe each
+other's rows mid-assertion. The symptom is alarming and misleading — the concurrency test
+reports that more than one booking won the same bay, which is the one thing this product
+guarantees. The constraint is fine; the two runs are not.
+
+If you need genuine parallel runs, give each one its own database. CI does exactly that: a
+dedicated Postgres service container per job.
 
 ---
 

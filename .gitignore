@@ -20,10 +20,16 @@ test-results/
 .niha/ledger.jsonl
 .niha/settings.local.json
 
-# niha regenerates this unrequested workflow on every run; it also cannot be
-# pushed without the workflow OAuth scope. Kept out of the repo deliberately.
-# A copy is preserved as evidence in field/artifacts/.
-.github/
+# .github/ was ignored while the only thing in it was a workflow niha
+# regenerated unrequested and which could not be pushed without the workflow
+# OAuth scope. That had a cost: CI never ran on this repository at all, which
+# is how the generated workflow's broken action ref went unnoticed until
+# phase 9 (niha-and-co/ai-platform#1033). Both are now committed.
+# The workflow exactly as generated is preserved at
+# field/artifacts/niha-generated-workflow.yml.
+
+# typescript incremental build cache
+*.tsbuildinfo
 
 # playwright
 test-results/

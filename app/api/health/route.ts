@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool from "../../../lib/db";
+import { version as PACKAGE_VERSION } from "../../../package.json";
 
 // ---------------------------------------------------------------------------
 // Caching — this route must never be served from a cache. Infrastructure
@@ -28,9 +29,13 @@ interface Checks {
 interface HealthOkResponse {
   status: "ok";
   checks: Checks;
-  /** Value of the `npm_package_version` env var, injected by Next.js from
-   *  `package.json`.  Falls back to `"unknown"` when not available. */
+  /** The released version, read from `package.json` at build time. */
   version: string;
+  /**
+   * The commit this build was made from, so a health response identifies
+   * exactly what is deployed.  `"unknown"` outside Vercel (e.g. local dev).
+   */
+  commit: string;
   /** Seconds since `process.start` — a proxy for pod/worker uptime. */
   uptime_seconds: number;
 }
@@ -40,6 +45,7 @@ interface HealthDegradedResponse {
   status: "degraded";
   checks: Checks;
   version: string;
+  commit: string;
   uptime_seconds: number;
 }
 
@@ -126,8 +132,8 @@ async function checkBookingGuarantee(): Promise<boolean> {
  * Both checks run in parallel via `Promise.all` to minimise latency.
  *
  * Responses:
- *   200 `{ status:'ok',       checks:{database:true,  booking_guarantee:true},  version, uptime_seconds }`
- *   503 `{ status:'degraded', checks:{database:false, booking_guarantee:false}, version, uptime_seconds }`
+ *   200 `{ status:'ok',       checks:{database:true,  booking_guarantee:true},  version, commit, uptime_seconds }`
+ *   503 `{ status:'degraded', checks:{database:false, booking_guarantee:false}, version, commit, uptime_seconds }`
  *      (either or both of the check booleans may be false on 503)
  *
  * Security guarantees (SEC-001):
@@ -146,8 +152,15 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
   ]);
 
   const checks: Checks = { database, booking_guarantee };
-  const version =
-    process.env["npm_package_version"] ?? "unknown";
+
+  // Read from package.json, not from `npm_package_version`. That variable is
+  // only set when the process is launched *by npm*; the Vercel runtime is not,
+  // so this reported "unknown" on every production deployment — a health
+  // endpoint that cannot tell you what is deployed.
+  const version = PACKAGE_VERSION;
+  const commit = (
+    process.env["VERCEL_GIT_COMMIT_SHA"] ?? "unknown"
+  ).slice(0, 7);
   const uptime_seconds = Math.floor(process.uptime());
 
   if (database && booking_guarantee) {
@@ -155,6 +168,7 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
       status: "ok",
       checks,
       version,
+      commit,
       uptime_seconds,
     };
     return NextResponse.json<HealthOkResponse>(body, { status: 200 });
@@ -164,6 +178,7 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
     status: "degraded",
     checks,
     version,
+    commit,
     uptime_seconds,
   };
   return NextResponse.json<HealthDegradedResponse>(body, { status: 503 });

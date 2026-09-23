@@ -9,7 +9,7 @@ thing to fix if the project continues.
 
 | | |
 |---|---|
-| **Live** | https://parkmitra-3hjxchudf-kamrutha4774gmailcoms-projects.vercel.app |
+| **Live** | https://parkmitra-nu.vercel.app |
 | **Health** | `/api/health` |
 | **Hosting** | Vercel (app) · Neon (Postgres) — both free tier |
 | **Alert** | `./scripts/health-alert.sh` → opens a GitHub issue labelled `alert` |

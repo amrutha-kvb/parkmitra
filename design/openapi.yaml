@@ -240,6 +240,35 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /health:
+    get:
+      tags: [ops]
+      operationId: getHealth
+      summary: Liveness and guarantee check
+      description: |
+        Checks whether the product's promise still holds, not merely whether the process
+        is up. `booking_guarantee` queries `pg_constraint` for the exclusion constraint
+        that prevents double-booking (ADR-001). The app can serve traffic perfectly while
+        quietly allowing two cars into one bay, and an ordinary liveness ping would call
+        that healthy.
+
+        Never cached. Documented here because `scripts/health-alert.sh` and the runbook
+        both depend on this shape.
+      responses:
+        "200":
+          description: Every check passed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: |
+            At least one check failed. `booking_guarantee: false` is the serious one —
+            see `docs/runbook.md`, which has the recovery procedure and a measured
+            restore time.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
 components:
 
   responses:
@@ -260,6 +289,36 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+
+    Health:
+      type: object
+      required: [status, checks, version, commit, uptime_seconds]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        checks:
+          type: object
+          required: [database, booking_guarantee]
+          properties:
+            database:
+              type: boolean
+              description: A round-trip to Postgres completed.
+            booking_guarantee:
+              type: boolean
+              description: |
+                The `bookings_no_overlapping_active` exclusion constraint is present.
+                False means the double-booking guarantee is not in force.
+        version:
+          type: string
+          description: Release version, read from package.json at build time.
+          example: "1.0.0"
+        commit:
+          type: string
+          description: |
+            Short SHA of the deployed build, so a health response identifies exactly what
+            is running. `"unknown"` outside Vercel.
+          example: "cd78455"
+        uptime_seconds: { type: integer, minimum: 0 }
+
 
     Area:
       type: object

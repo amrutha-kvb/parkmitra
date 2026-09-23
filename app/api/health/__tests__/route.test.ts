@@ -9,10 +9,12 @@
  *   2.  Response has all required fields (ARCH-002)
  *   3.  checks.database is true when SELECT $1 succeeds
  *   4.  checks.booking_guarantee is true when constraint row is found
- *   5.  version comes from npm_package_version env var
- *   6.  version falls back to 'unknown' when env var is absent
+ *   5.  version is the real package version, not the npm env var
+ *   6.  version is reported even when the npm env var is absent
+ *   6b. commit is the short SHA of the deployed build
+ *   6c. commit falls back to 'unknown' off Vercel
  *   7.  uptime_seconds is a non-negative integer (Math.floor of process.uptime)
- *   8.  Response body keys are exactly {status, checks, version, uptime_seconds}
+ *   8.  Response body keys are exactly {status, checks, version, commit, uptime_seconds}
  *   9.  checks keys are exactly {database, booking_guarantee}
  *
  * Degraded — 503
@@ -52,6 +54,7 @@ vi.mock("../../../../lib/db", () => ({
 
 // Now import the handler under test.
 import { GET, dynamic } from "../route";
+import pkg from "../../../../package.json";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -132,23 +135,49 @@ describe("happy path → 200", () => {
     expect(body.checks.booking_guarantee).toBe(true);
   });
 
-  it("5. version comes from npm_package_version env var", async () => {
+  // Regression guard. This used to read `npm_package_version`, which is only
+  // set when the process is launched *by npm*. The Vercel runtime is not, so
+  // production reported `"version":"unknown"` on every deployment — a health
+  // endpoint that could not tell you what was deployed. It now reads
+  // package.json directly, which is resolved at build time.
+  it("5. version is the real package version, not the npm env var", async () => {
     process.env["npm_package_version"] = "3.7.1";
     setupHealthy();
     const res = await GET();
     const body = await res.json();
-    expect(body.version).toBe("3.7.1");
+    expect(body.version).toBe(pkg.version);
+    expect(body.version).not.toBe("3.7.1");
+    expect(body.version).not.toBe("unknown");
     delete process.env["npm_package_version"];
   });
 
-  it("6. version falls back to 'unknown' when npm_package_version is absent", async () => {
+  it("6. version is still reported when npm_package_version is absent", async () => {
     const saved = process.env["npm_package_version"];
     delete process.env["npm_package_version"];
     setupHealthy();
     const res = await GET();
     const body = await res.json();
-    expect(body.version).toBe("unknown");
+    expect(body.version).toBe(pkg.version);
     if (saved !== undefined) process.env["npm_package_version"] = saved;
+  });
+
+  it("6b. commit is the short SHA of the deployed build", async () => {
+    process.env["VERCEL_GIT_COMMIT_SHA"] = "0123456789abcdef";
+    setupHealthy();
+    const res = await GET();
+    const body = await res.json();
+    expect(body.commit).toBe("0123456");
+    delete process.env["VERCEL_GIT_COMMIT_SHA"];
+  });
+
+  it("6c. commit falls back to 'unknown' off Vercel", async () => {
+    const saved = process.env["VERCEL_GIT_COMMIT_SHA"];
+    delete process.env["VERCEL_GIT_COMMIT_SHA"];
+    setupHealthy();
+    const res = await GET();
+    const body = await res.json();
+    expect(body.commit).toBe("unknown");
+    if (saved !== undefined) process.env["VERCEL_GIT_COMMIT_SHA"] = saved;
   });
 
   it("7. uptime_seconds is the floored value of process.uptime()", async () => {
@@ -160,12 +189,12 @@ describe("happy path → 200", () => {
     expect(body.uptime_seconds).toBe(99);
   });
 
-  it("8. response body has exactly {status, checks, version, uptime_seconds} (ARCH-002)", async () => {
+  it("8. response body has exactly {status, checks, version, commit, uptime_seconds} (ARCH-002)", async () => {
     setupHealthy();
     const res = await GET();
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(
-      ["checks", "status", "uptime_seconds", "version"].sort(),
+      ["checks", "commit", "status", "uptime_seconds", "version"].sort(),
     );
   });
 
@@ -232,7 +261,7 @@ describe("degraded → 503", () => {
     const res = await GET();
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(
-      ["checks", "status", "uptime_seconds", "version"].sort(),
+      ["checks", "commit", "status", "uptime_seconds", "version"].sort(),
     );
     expect(Object.keys(body.checks).sort()).toEqual(
       ["booking_guarantee", "database"].sort(),

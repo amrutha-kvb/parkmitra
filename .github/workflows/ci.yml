@@ -1,0 +1,135 @@
+# Verification on every pull request.
+#
+# The point of this pipeline is the concurrency test. parkmitra's one promise is
+# that a booked bay is yours, and that promise is enforced by a Postgres exclusion
+# constraint rather than by application code (ADR-001). A test suite that mocked
+# the database would pass against a completely broken product, so CI runs a real
+# Postgres and applies the real migrations.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, unit tests, build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parkmitra_ci
+        ports:
+          - 5432:5432
+        # Without this the job races the container and fails intermittently,
+        # which is worse than failing outright because it teaches people to
+        # re-run CI instead of reading it.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/parkmitra_ci
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations and seed
+        run: |
+          for f in db/migrations/0*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
+            echo "→ $f"
+            psql -q -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -f "$f"
+          done
+          psql -q -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -f db/seed.sql
+
+      - name: Assert the booking guarantee is actually installed
+        # A migration that ran without error is not the same as a constraint
+        # that exists. If this is ever missing, every concurrency test below
+        # would still pass while the product silently allowed double bookings.
+        run: |
+          psql -tA -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -c \
+            "SELECT 1 FROM pg_constraint WHERE conname = 'bookings_no_overlapping_active';" \
+            | grep -q 1 || { echo "::error::exclusion constraint missing"; exit 1; }
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm run build
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: verify
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parkmitra_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/parkmitra_ci
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations and seed
+        run: |
+          for f in db/migrations/0*.sql; do
+            case "$f" in *_down.sql) continue ;; esac
+            psql -q -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -f "$f"
+          done
+          psql -q -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -f db/seed.sql
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

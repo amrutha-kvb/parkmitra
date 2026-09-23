@@ -14,7 +14,7 @@
 # Exit 0 healthy · 1 degraded (alert raised) · 2 unreachable (alert raised)
 set -uo pipefail
 
-URL="${HEALTH_URL:-https://parkmitra-3hjxchudf-kamrutha4774gmailcoms-projects.vercel.app}/api/health"
+URL="${HEALTH_URL:-https://parkmitra-nu.vercel.app}/api/health"
 REPO="${ALERT_REPO:-amrutha-kvb/parkmitra}"
 LABEL="alert"
 
