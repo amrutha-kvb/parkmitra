@@ -601,7 +601,9 @@ function ConfirmedPageInner() {
             }}
           >
             Closing this page is fine. Come back any time with your code at{" "}
-            <a href="/lookup">Find your booking</a>.
+            <a href="/lookup" className="link-tap">
+              Find your booking
+            </a>
           </p>
         </>
       )}

@@ -1,5 +1,13 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * A crawl of every screen, looking for the things nobody writes a test for:
+ * uncaught exceptions, network failures, dead internal links, and blank pages.
+ *
+ * Written after the lookup screen turned out to be linked from nowhere. The
+ * dead-link check here is what would have caught the opposite problem - a link
+ * pointing at a page that does not exist.
+ */
 const SCREENS = [
   ["S1 home", "/"],
   ["S2 results", "/search?area=gachibowli&start=2026-12-15T10%3A00%3A00%2B05%3A30&end=2026-12-15T12%3A00%3A00%2B05%3A30"],
@@ -34,9 +42,19 @@ for (const [name, path] of SCREENS) {
     const text = (await page.locator("body").innerText()).trim();
     expect(text.length, `${name} rendered an empty body`).toBeGreaterThan(30);
 
-    expect(pageErrors, `${name} threw`).toEqual([]);
-    expect(failedRequests, `${name} had failed requests`).toEqual([]);
-    expect(consoleErrors, `${name} logged console errors`).toEqual([]);
+    // An uncaught exception is always a bug.
+    expect(pageErrors, `${name} threw an uncaught exception`).toEqual([]);
+    expect(failedRequests, `${name} had requests fail at the network level`).toEqual([]);
+
+    // Console errors are filtered, not asserted empty. A screen that CORRECTLY
+    // handles a 404 from its own API - an unknown reference code, say - still
+    // makes the browser log "Failed to load resource: 404". Asserting no console
+    // errors at all would flag the product for doing the right thing, and the
+    // first version of this file did exactly that on three screens.
+    const realErrors = consoleErrors.filter(
+      (e) => !/Failed to load resource: the server responded with a status of 40\d/.test(e),
+    );
+    expect(realErrors, `${name} logged unexpected console errors`).toEqual([]);
 
     // Every internal link must resolve.
     const hrefs = await page.locator('a[href^="/"]').evaluateAll((els) =>

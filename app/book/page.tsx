@@ -540,7 +540,9 @@ function BookPageInner() {
           pick one first.
         </p>
         <p style={{ margin: 0 }}>
-          <a href="/">Start a search</a>
+          <a href="/" className="link-tap">
+            Start a search
+          </a>
         </p>
       </div>
     );
