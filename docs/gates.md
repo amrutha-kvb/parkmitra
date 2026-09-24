@@ -70,6 +70,15 @@ no mock, stub, fake, TODO or hardcoded datum sits in `app/` or `lib/` outside te
 
 Payment is simulated — a scope decision rather than a mock, disclosed on the product itself.
 
+## Phase 8 — *Demo script, then a ten-minute live demonstration*
+
+**[`docs/demo-script.md`](demo-script.md)**
+
+A minute-by-minute script for the live demo, from the hosted instance, product before any
+slides. Includes what to say when something breaks on stage — and notes that a 409 mid-demo
+is the best thing that can happen, because it is the exclusion constraint working in front of
+an audience.
+
 ## Gate 6 — *The fresh clone works*
 
 **[`field/run-log.md`](../field/run-log.md)**, "Gate 6 — the fresh clone, timed"
