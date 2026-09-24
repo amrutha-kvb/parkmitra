@@ -285,7 +285,10 @@ export default function HomePage() {
             color: "var(--ink-500)",
           }}
         >
-          Already booked? <a href="/lookup">Find your booking with your code</a>.
+          Already booked?{" "}
+          <a href="/lookup" className="link-tap">
+            Find your booking with your code
+          </a>
         </p>
       </div>
 

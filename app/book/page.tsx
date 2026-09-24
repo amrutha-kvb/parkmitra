@@ -510,6 +510,44 @@ function BookPageInner() {
   const isSubmitting = submitStatus === "submitting";
   const windowLabel = start && end ? formatWindowLabel(start, end) : "";
 
+  /*
+    Reached without a chosen bay.
+
+    design/states.md said S3's empty state "cannot occur — the screen is reached
+    with a chosen bay and window". That was wrong: anyone can open /book
+    directly, and `fetchBays` returned early on missing params, so the screen
+    rendered a booking form for nothing. No spot, no bay, no price, and a
+    "Book this bay" button with no bay to book.
+
+    Found by auditing every screen by URL rather than only by walking the happy
+    path.
+  */
+  if (!spotIdRaw || !area || !start || !end) {
+    return (
+      <div
+        className="page"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-3)",
+          maxWidth: 480,
+          paddingBlock: "var(--space-8)",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>No bay chosen yet</h1>
+        <p style={{ color: "var(--ink-500)", margin: 0 }}>
+          This page books a specific bay for a specific window, so it needs you to
+          pick one first.
+        </p>
+        <p style={{ margin: 0 }}>
+          <a href="/" className="link-tap">
+            Start a search
+          </a>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
       className="page"

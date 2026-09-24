@@ -712,6 +712,13 @@ select:focus-visible {
   color: var(--accent-700);
   text-decoration: none;
   letter-spacing: -0.01em;
+
+  /* 44px minimum tap target (design/a11y.md). The wordmark is the route home
+     from every screen and was 28px tall, which is a miss on a phone and was
+     never caught because no test measured rendered target sizes. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
 }
 
 .site-header__wordmark:hover {
@@ -750,4 +757,25 @@ select:focus-visible {
   .skeleton {
     animation: none !important;
   }
+}
+
+
+/* --------------------------------------------------------------------------
+   .link-tap — a text link that is also a 44px tap target
+   --------------------------------------------------------------------------
+   design/a11y.md requires 44x44px for every interactive target. A plain <a>
+   inside a paragraph is 17-18px tall, and I added three such links in one
+   evening before a test measured them: the two "Find your booking" links and
+   "Start a search" on the empty book screen.
+
+   WCAG 2.5.8 exempts links inline in a sentence, so these were arguably
+   compliant. They are still the primary route between screens on a phone, and
+   the baseline this project set for itself does not carve out the exception.
+   A class beats remembering.
+   -------------------------------------------------------------------------- */
+.link-tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding-inline: var(--space-1);
 }
