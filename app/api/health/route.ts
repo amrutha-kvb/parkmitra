@@ -158,9 +158,13 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
   // so this reported "unknown" on every production deployment — a health
   // endpoint that cannot tell you what is deployed.
   const version = PACKAGE_VERSION;
-  const commit = (
-    process.env["VERCEL_GIT_COMMIT_SHA"] ?? "unknown"
-  ).slice(0, 7);
+  // `??` only catches null and undefined. A deployment that is not connected to
+  // git — deploying from a clean checkout, for instance — sets this variable to
+  // an EMPTY STRING, and "".slice(0, 7) is "". The health endpoint then reported
+  // `"commit": ""`, which is worse than "unknown": it looks like a value.
+  const commit = process.env["VERCEL_GIT_COMMIT_SHA"]?.trim()
+    ? process.env["VERCEL_GIT_COMMIT_SHA"].trim().slice(0, 7)
+    : "unknown";
   const uptime_seconds = Math.floor(process.uptime());
 
   if (database && booking_guarantee) {
