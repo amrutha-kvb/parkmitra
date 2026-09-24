@@ -213,6 +213,7 @@ Read in this order. Each is short and none repeats another.
 | | |
 |---|---|
 | [`docs/handover.md`](docs/handover.md) | What to do next, and what not to do. Start here. |
+| [`docs/demo-script.md`](docs/demo-script.md) | Ten minutes, from the hosted instance, product before slides |
 | [`design/adr/ADR-001…`](design/adr/) | Why the booking guarantee lives in the database |
 | [`docs/runbook.md`](docs/runbook.md) | What to do when it breaks, with measured recovery times |
 | [`field/security-review.md`](field/security-review.md) | Eight controls tested; two gaps stated |
