@@ -579,6 +579,30 @@ function ConfirmedPageInner() {
                 ? "Arrival recorded ✓"
                 : "I've arrived"}
           </button>
+
+          {/*
+            The way back in.
+
+            S6 existed, was tested, and had an accessibility pass — and nothing
+            anywhere linked to it, so the only way to reach it was to type the
+            URL. For a product whose entire authorisation model is "keep this
+            code and come back with it", having no visible way to come back is
+            not a missing nicety, it is the model not working.
+
+            Placed here because this is the screen holding the code, and it is
+            the moment a person wonders what happens when they close the tab.
+          */}
+          <p
+            style={{
+              marginTop: "var(--space-5)",
+              fontSize: "var(--text-sm)",
+              color: "var(--ink-500)",
+              textAlign: "center",
+            }}
+          >
+            Closing this page is fine. Come back any time with your code at{" "}
+            <a href="/lookup">Find your booking</a>.
+          </p>
         </>
       )}
     </div>

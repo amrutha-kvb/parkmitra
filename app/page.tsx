@@ -272,6 +272,21 @@ export default function HomePage() {
             consent isn&apos;t ours to do. Payment is simulated.
           </span>
         </p>
+
+        {/*
+          Returning users land here, not on the confirmation screen they saw
+          days ago. S6 was reachable only by typing /lookup, which made the
+          reference code a dead end for exactly the person it exists for.
+        */}
+        <p
+          style={{
+            marginTop: "var(--space-3)",
+            fontSize: "var(--text-sm)",
+            color: "var(--ink-500)",
+          }}
+        >
+          Already booked? <a href="/lookup">Find your booking with your code</a>.
+        </p>
       </div>
 
       {/* ── Live region — announces validation errors to screen readers ── */}

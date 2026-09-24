@@ -73,6 +73,23 @@ broken page rather than an empty one.
 
 ---
 
+## Reachability, which the four states do not cover
+
+A state can be perfectly implemented and still be unreachable. **S6 was.** It had unit
+tests, end-to-end coverage and an accessibility pass, and nothing in the product linked to
+it — the only way in was to type `/lookup`, which is what every test did, so every test
+passed.
+
+For a product whose whole authorisation model is "keep this code and come back with it",
+having no visible way to come back is not a missing nicety. It is the model not working.
+
+It was found by a person reading the demo script and asking where the Look up screen was.
+There are now links from the home screen and from the confirmation screen, and
+`e2e/states.spec.ts` asserts both by **clicking**, never by `goto`.
+
+**The lesson generalises past this screen:** a test that navigates by URL proves the screen
+renders, not that anyone can get to it.
+
 ## What this audit changed
 
 1. **S1's empty state now exists**, in the mockups and in the code.
