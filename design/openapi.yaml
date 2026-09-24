@@ -43,6 +43,12 @@ tags:
       Create and read bookings. Reads and mutations are authorised by holding the
       booking's reference_code, which is a path parameter rather than a security
       scheme — see ADR-002.
+  - name: verification
+    description: >
+      Phone OTP verification. Both endpoints require the booking's reference_code
+      as a path parameter — the phone number is NEVER an input. This prevents the
+      phone-number oracle attack described in design/threat-model.md.
+      Responses are deliberately indistinguishable for known and unknown bookings.
 
 paths:
 
@@ -250,11 +256,15 @@ paths:
     post:
       tags: [bookings]
       operationId: payBooking
-      summary: Simulated payment
+      summary: Authorise payment through the configured provider
       description: |
-        **No money moves.** v1 has no payment provider (`plan/scope.md`). This records a
-        `payments` row and moves the booking to `confirmed`, so the seam is real even
-        though the gateway is not. The UI must state this plainly to the user.
+        Authorise payment through the configured provider (ADR-005). The default
+        provider is `simulated` — no money moves; a `payments` row is recorded and
+        the booking moves to `confirmed`. The provider is selected by the
+        `PAYMENT_PROVIDER` environment variable.
+
+        A 422 is returned when the provider declines the charge (e.g. insufficient
+        funds with a real gateway). The simulated provider never declines.
       parameters:
         - name: reference_code
           in: path
@@ -269,6 +279,109 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: Already paid, or the booking is cancelled or expired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Payment provider declined the charge
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: payment_failed
+                message: Payment was declined. Please try again.
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /bookings/{reference_code}/verify/start:
+    post:
+      tags: [verification]
+      operationId: startVerification
+      summary: Send an OTP to the phone number on this booking
+      description: |
+        The phone number is read from the booking row on the server side — it is
+        NEVER accepted as a request parameter. This prevents the phone-number
+        oracle attack: an attacker cannot submit phone numbers to discover which
+        ones have bookings (ADR-002, threat model T1).
+
+        The response is deliberately identical whether the booking exists, does
+        not exist, or is cancelled. A known and an unknown reference_code produce
+        byte-identical 200 bodies. This is the security invariant this endpoint
+        must maintain — any difference leaks information.
+
+        Rate limited: 10 requests per minute per IP (scope `verify`).
+      parameters:
+        - name: reference_code
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      responses:
+        "200":
+          description: |
+            Always 200 with a generic message. Whether an OTP was actually sent
+            is not revealed — that would be the oracle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+              example:
+                message: "If this booking exists, a verification code has been sent."
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /bookings/{reference_code}/verify/check:
+    post:
+      tags: [verification]
+      operationId: checkVerification
+      summary: Verify a 6-digit OTP code
+      description: |
+        The OTP is looked up by booking_id (never by phone number). The response
+        is identical for unknown bookings and failed verifications — no oracle.
+
+        On success, `bookings.phone_verified` is set to `true`.
+
+        Attempt limiting: at most 5 wrong guesses per OTP. After 5 failures the
+        OTP is burned and the driver must request a new one via `/verify/start`.
+        The attempt counter is protected against concurrency by a row-level lock
+        (`SELECT ... FOR UPDATE`).
+
+        Rate limited: 10 requests per minute per IP (scope `verify`).
+      parameters:
+        - name: reference_code
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9A-HJKMNP-TV-Z]{10}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  pattern: "^\\d{6}$"
+                  description: The 6-digit OTP code.
+                  example: "482917"
+      responses:
+        "200":
+          description: |
+            Always 200. `verified: true` on success; `verified: false` for wrong
+            code, expired OTP, max attempts, or unknown booking — all
+            indistinguishable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [verified]
+                properties:
+                  verified: { type: boolean }
+        "400":
+          description: Missing or malformed `code` field
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

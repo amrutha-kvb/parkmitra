@@ -71,6 +71,7 @@ const ARRIVE_SQL = `
       upper(window_at)::text  AS window_end,
       amount_paise,
       arrived_at::text        AS arrived_at,
+      phone_verified,
       bay_id
   )
   SELECT
@@ -81,6 +82,7 @@ const ARRIVE_SQL = `
     u.window_end,
     u.amount_paise,
     u.arrived_at,
+    u.phone_verified,
     s.name         AS spot_name,
     b.label        AS bay_label,
     s.address_line AS address_line
@@ -154,6 +156,7 @@ export async function POST(
     window_end: string;
     amount_paise: number;
     arrived_at: string | null;
+    phone_verified: boolean;
     spot_name: string;
     bay_label: string;
     address_line: string;

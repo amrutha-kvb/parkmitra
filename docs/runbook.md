@@ -50,6 +50,13 @@ sweeps. It is not urgent on any single day and it is not optional over months.
 Not running it does not break the limiter. It slowly fills the database the limiter exists
 to protect, which is a worse failure than the one being prevented.
 
+### phone_otp sweep (not yet scheduled)
+
+No sweep exists for `phone_otp` rows. They accumulate one per booking that ever requested
+an OTP. At demo scale this is fine. At production scale, add a sweep that deletes rows for
+bookings older than 90 days — see the symptom entry "phone_otp table growing without bound"
+above.
+
 ---
 
 ## Symptom → cause → fix
@@ -120,6 +127,67 @@ DATABASE_URL="<url>" ./scripts/db-setup.sh
 **This drops and recreates.** It refuses to do so against a non-local URL for exactly that
 reason — read the script before pointing it at production.
 
+### Pay returns 422 `phone_not_verified`
+
+The driver's phone has not been OTP-verified for this booking. This is the intended gate
+(migration 007): no payment without verification. The driver must complete the OTP flow on
+the pay page before the pay button appears.
+
+If this appears in logs for a booking that *should* be verified, check the `phone_verified`
+column:
+
+```bash
+psql "$DATABASE_URL" -c "SELECT reference_code, phone_verified FROM bookings WHERE reference_code = '<code>';"
+```
+
+If `phone_verified` is `false` but the driver claims they verified, check `phone_otp`:
+
+```bash
+psql "$DATABASE_URL" -c "SELECT * FROM phone_otp WHERE booking_id = (SELECT id FROM bookings WHERE reference_code = '<code>');"
+```
+
+The row shows `used`, `attempts`, and `expires_at`. A `used = true` row with
+`phone_verified = false` on the booking means the `UPDATE bookings SET phone_verified = true`
+in `verifyOtp` failed after the OTP row was marked used — a partial-write bug. Fix manually:
+
+```bash
+psql "$DATABASE_URL" -c "UPDATE bookings SET phone_verified = true WHERE reference_code = '<code>';"
+```
+
+### Pay returns 422 `payment_failed`
+
+The payment provider declined the charge. With the simulated provider this never happens —
+if it does, `PAYMENT_PROVIDER` is set to an unknown value or a real provider is integrated
+and the charge was declined. Check the env var in Vercel's settings; check the provider's
+dashboard for the decline reason.
+
+### OTP verify returns `{ verified: false }` for every code
+
+Causes, in order of likelihood:
+
+1. **OTP expired** (>5 minutes). The driver must request a new one via the pay page
+   (which calls `verify/start` automatically on load).
+2. **Max attempts exceeded** (5 wrong guesses). Same fix: request a new OTP.
+3. **`phone_otp` row missing**. `verify/start` was never called, or `createOtp` failed.
+   Check the row:
+
+```bash
+psql "$DATABASE_URL" -c "SELECT * FROM phone_otp WHERE booking_id = (SELECT id FROM bookings WHERE reference_code = '<code>');"
+```
+
+If no row exists, the driver must reload the pay page to trigger a new OTP send.
+
+### `phone_otp` table growing without bound
+
+`phone_otp` rows are never swept. One row per booking that ever requested an OTP. At
+current scale this is harmless; at production scale, add a sweep job that deletes rows
+for bookings whose window ended more than N days ago (same cadence as the future PD
+anonymisation sweep in `field/privacy-review.md`).
+
+```bash
+psql "$DATABASE_URL" -c "DELETE FROM phone_otp WHERE booking_id IN (SELECT id FROM bookings WHERE upper(window_at) < now() - interval '90 days');"
+```
+
 ---
 
 ## What breaks at 3am, honestly
@@ -128,11 +196,17 @@ reason — read the script before pointing it at production.
   rather than hiding it behind a spinner.
 - **Free-tier limits.** Vercel bandwidth/build minutes, Neon compute-hours. Nothing pages
   you — check the dashboards.
-- **Booking spam.** No accounts and no real payment, so nothing makes it cost anything
-  (threat model T3). A known, accepted hole rather than an oversight.
+- **Booking spam.** OTP verification is now required before payment, but no real SMS
+  provider is integrated — the code is delivered via `_dev_code` in non-production. The
+  gate exists; the cost does not. An attacker who reads the dev response can still
+  auto-verify. Closing this requires a real SMS provider (threat model T3).
 - **A lost reference code.** Unrecoverable by design (ADR-002). There is no "look up my
   bookings by phone", because that endpoint would be the enumeration hole the whole
   capability model exists to avoid.
+- **OTP delivery failure.** No SMS provider means no OTP delivery in production. The pay
+  page will show the verify step but the driver will never receive the code. This blocks
+  the entire payment flow until a real SMS provider is integrated or `_dev_code` is
+  enabled (non-production only).
 
 ## What is deliberately not monitored
 

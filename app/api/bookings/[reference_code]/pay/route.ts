@@ -1,16 +1,19 @@
 /**
  * POST /api/bookings/{reference_code}/pay
  *
- * Simulated payment (openapi.yaml payBooking, plan/scope.md: "no payment
- * provider in v1").  No money moves.  The operation:
+ * Authorise payment through the configured provider (ADR-005), then
+ * atomically record the payment and confirm the booking.
+ *
+ * The operation:
  *   1. Validates the reference_code path parameter.
  *   2. Looks up the booking — 404 for unknown or malformed code.
  *   3. Rejects with 409 if the booking is already confirmed, cancelled, or
  *      expired (already paid / no longer payable).
- *   4. In a single transaction:
- *      a. Inserts a row in `payments` with provider='simulated', status='paid'.
+ *   4. Calls the payment provider's `authorise` method.
+ *   5. In a single transaction:
+ *      a. Inserts a row in `payments` with the provider's name and status.
  *      b. Updates `bookings.status` to 'confirmed'.
- *   5. Returns 200 with the updated Booking schema.
+ *   6. Returns 200 with the updated Booking schema.
  *
  * The transaction guarantees atomicity: a concurrent second pay call will
  * read 'confirmed' status and return 409, never double-inserting a payment.
@@ -21,6 +24,7 @@
  * @see design/openapi.yaml  →  /bookings/{reference_code}/pay  →  POST  →  payBooking
  * @see design/adr/ADR-002.md  (reference_code as authorisation token)
  * @see design/adr/ADR-003.md  (money in integer paise)
+ * @see design/adr/ADR-005-payment-provider-seam.md  (provider interface)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -35,6 +39,7 @@ import {
   ErrorResponse,
 } from "../../../../../lib/booking-lookup";
 import { rateLimitGuard } from "../../../../../lib/rate-limit-guard";
+import { getPaymentProvider } from "../../../../../lib/payments/resolve";
 
 // ---------------------------------------------------------------------------
 // SQL
@@ -43,13 +48,13 @@ import { rateLimitGuard } from "../../../../../lib/rate-limit-guard";
 /**
  * Atomic pay transaction:
  *   1. Lock the booking row for update so a concurrent call waits.
- *   2. Insert a payment row (provider = 'simulated', status = 'paid').
+ *   2. Insert a payment row with the provider name from $2.
  *   3. Set booking status to 'confirmed'.
  *   4. Return the updated booking joined with spot/bay display fields.
  *
  * All parameters are positional — no string concatenation (SEC-004).
  * $1 = booking id (integer, internal — never the reference_code in SQL values)
- * $2 = amount_paise (copied from the booking row)
+ * $2 = provider name (string from PaymentProvider.name)
  */
 const PAY_TRANSACTION_SQL = `
   WITH locked AS (
@@ -60,7 +65,7 @@ const PAY_TRANSACTION_SQL = `
   ),
   payment AS (
     INSERT INTO payments (booking_id, amount_paise, provider, status)
-    SELECT id, amount_paise, 'simulated', 'paid'
+    SELECT id, amount_paise, $2, 'paid'
     FROM   locked
     RETURNING booking_id
   ),
@@ -76,6 +81,7 @@ const PAY_TRANSACTION_SQL = `
       upper(window_at)::text  AS window_end,
       amount_paise,
       arrived_at::text        AS arrived_at,
+      phone_verified,
       bay_id
   )
   SELECT
@@ -86,6 +92,7 @@ const PAY_TRANSACTION_SQL = `
     u.window_end,
     u.amount_paise,
     u.arrived_at,
+    u.phone_verified,
     s.name         AS spot_name,
     b.label        AS bay_label,
     s.address_line AS address_line
@@ -104,6 +111,7 @@ const PAY_TRANSACTION_SQL = `
  * 200  → Updated Booking schema (status = 'confirmed')
  * 404  → identical body for malformed or unknown reference_code
  * 409  → booking is already confirmed, cancelled, or expired
+ * 422  → phone not verified, or payment provider declined the charge
  */
 export async function POST(
   request: NextRequest,
@@ -149,11 +157,39 @@ export async function POST(
   }
 
   // -------------------------------------------------------------------------
-  // 4. Execute the pay transaction atomically.
+  // 4. Guard: phone must be verified before payment (migration 007).
+  // -------------------------------------------------------------------------
+  if (!row.phone_verified) {
+    return NextResponse.json<ErrorResponse>(
+      { error: "phone_not_verified", message: "Verify your phone number before paying." },
+      { status: 422 },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. Authorise the payment through the configured provider (ADR-005).
+  //    The provider is resolved once per cold start via PAYMENT_PROVIDER
+  //    env var; defaults to "simulated" when unset.
+  // -------------------------------------------------------------------------
+  const provider = getPaymentProvider();
+  const paymentResult = await provider.authorise({
+    reference_code,
+    amount_paise: row.amount_paise,
+  });
+
+  if (paymentResult.status === "failed") {
+    return NextResponse.json<ErrorResponse>(
+      { error: "payment_failed", message: "Payment was declined. Please try again." },
+      { status: 422 },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. Execute the pay transaction atomically.
   //    Uses the internal booking id (never the reference_code as a SQL value)
   //    to avoid any join-key confusion. The CTE locks the row, inserts the
-  //    payment, updates the status, and returns the refreshed booking — all
-  //    in one round-trip (SEC-004: fully parameterised).
+  //    payment with the provider's name, updates the status, and returns the
+  //    refreshed booking — all in one round-trip (SEC-004: fully parameterised).
   // -------------------------------------------------------------------------
   const client = await pool.connect();
   try {
@@ -167,10 +203,11 @@ export async function POST(
       window_end: string;
       amount_paise: number;
       arrived_at: string | null;
+      phone_verified: boolean;
       spot_name: string;
       bay_label: string;
       address_line: string;
-    }>(PAY_TRANSACTION_SQL, [row.id]);
+    }>(PAY_TRANSACTION_SQL, [row.id, provider.name]);
 
     await client.query("COMMIT");
 

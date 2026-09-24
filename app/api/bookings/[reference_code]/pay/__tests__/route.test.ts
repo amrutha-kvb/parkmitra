@@ -90,6 +90,7 @@ const PENDING_ROW = {
   bay_label: "B-12",
   address_line: "Cyber Heights, Gachibowli, Hyderabad",
   arrived_at: null,
+  phone_verified: true,
 };
 
 const CONFIRMED_RESULT_ROW = {
@@ -212,6 +213,31 @@ describe("status guard / 409", () => {
 });
 
 // ===========================================================================
+// phone_verified gate
+// ===========================================================================
+describe("phone_verified gate", () => {
+  it("pending but unverified → 422 phone_not_verified", async () => {
+    mockFindBookingByCode.mockResolvedValueOnce({
+      ...PENDING_ROW,
+      phone_verified: false,
+    });
+    const res = await POST(makePOST(VALID_CODE), makeParams(VALID_CODE));
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("phone_not_verified");
+  });
+
+  it("pool.connect is NOT called when phone is unverified", async () => {
+    mockFindBookingByCode.mockResolvedValueOnce({
+      ...PENDING_ROW,
+      phone_verified: false,
+    });
+    await POST(makePOST(VALID_CODE), makeParams(VALID_CODE));
+    expect(mockPoolConnect).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
 // 8–13  Happy path / 200
 // ===========================================================================
 describe("happy path / 200", () => {
@@ -243,7 +269,7 @@ describe("happy path / 200", () => {
     expect(body).toHaveProperty("arrived_at");
   });
 
-  it("10. the CTE SQL contains 'simulated' and 'paid' literals (parameterised via CTE)", async () => {
+  it("10. payment INSERT uses provider='simulated' and status='paid'", async () => {
     mockFindBookingByCode.mockResolvedValueOnce(PENDING_ROW);
     const client = mockClient({ rows: [CONFIRMED_RESULT_ROW] });
 
@@ -256,8 +282,11 @@ describe("happy path / 200", () => {
     });
     expect(cteCall).toBeDefined();
     const sql = ((cteCall ?? []) as unknown[])[0] as string;
-    expect(sql).toContain("simulated");
+    const params = ((cteCall ?? []) as unknown[])[1] as unknown[];
+    // 'paid' is still a SQL literal in the CTE.
     expect(sql).toContain("paid");
+    // Provider name is now a parameterised value ($2), not a SQL literal.
+    expect(params).toContain("simulated");
   });
 
   it("11. BEGIN and COMMIT are called on the client", async () => {

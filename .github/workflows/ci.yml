@@ -85,6 +85,20 @@ jobs:
 
       - run: npm test
 
+      # Timezone matrix — the one bug that reached a user was a timezone
+      # shift invisible to every test because they all ran in IST. These
+      # two re-runs execute the date-handling tests under UTC and US Pacific
+      # so a getUTCDate() / getDate() confusion is caught before merge.
+      - name: "Timezone matrix: UTC"
+        run: npx vitest run tests/timezone-matrix.test.ts
+        env:
+          TZ: UTC
+
+      - name: "Timezone matrix: US Pacific"
+        run: npx vitest run tests/timezone-matrix.test.ts
+        env:
+          TZ: America/Los_Angeles
+
       - run: npm run build
 
   e2e:

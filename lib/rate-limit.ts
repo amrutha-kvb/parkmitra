@@ -33,6 +33,8 @@ export const SCOPES = {
   booking: 10,
   /** Paying for, or arriving at, an existing booking. */
   mutate: 20,
+  /** OTP send and verify. Tight: each attempt is a brute-force guess. */
+  verify: 10,
 } as const;
 
 export type RateLimitScope = keyof typeof SCOPES;

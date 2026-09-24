@@ -68,6 +68,51 @@ named in ADR-002 as the first thing to add, and handover ticket 2.
 
 Full endpoint-by-endpoint evidence is in [`docs/endpoint-audit.md`](../docs/endpoint-audit.md).
 
+### Phone OTP verification — now wired, simulated SMS
+
+Phone verification is now required before payment. The pay route returns
+`422 phone_not_verified` unless the booking has `phone_verified = true`.
+
+**What was verified:**
+
+| Control | How checked | Result |
+|---|---|---|
+| Pay rejects unverified booking | Unit test: `PENDING_ROW` with `phone_verified: false` → 422 | **PASS** |
+| No endpoint accepts a phone number | Read every route handler in `app/api/` | **PASS** — phone is always read from the booking row server-side |
+| Verify responses are indistinguishable | Unit tests: byte-identical `{ message }` for malformed, unknown, known, and cancelled bookings | **PASS** |
+| OTP stored as SHA-256 hash | Read `createOtp` in `lib/otp.ts`: `createHash("sha256")` | **PASS** |
+| Attempt limit enforced under concurrency | `tests/otp-attempt-limit.test.ts`: 10 simultaneous wrong guesses, counter = 5, not 6 or 10 | **PASS** |
+| Attempt limit enforced by `FOR UPDATE` | Broke the lock (removed `FOR UPDATE`), re-ran: CHECK constraint violation. Restored: green | **PASS** — proven by red/green cycle |
+| Concurrent resend does not throw UNIQUE violation | `tests/otp-concurrent-resend.test.ts`: 10 simultaneous `createOtp`, 0 failures, 1 row survives | **PASS** |
+| OTP expires after 5 minutes | Read `OTP_TTL_MINUTES = 5` and `expires_at <= new Date()` guard in `verifyOtp` | **PASS** — structural |
+| Rate limit on verify endpoints | 10/min/IP, scope `verify`. Route tests assert guard is called | **PASS** |
+| `_dev_code` absent in production | `IS_DEV = process.env.NODE_ENV !== "production"` — field only added when truthy | **PASS** — structural |
+| `_dev_code` present for ALL responses in dev (no oracle) | Known and unknown bookings both get a `_dev_code`; unknown gets a random one | **PASS** — structural |
+
+**What is not verified:**
+
+- No real SMS provider is integrated. The OTP code is delivered via `_dev_code` in
+  non-production. Until a real provider ships, the verification gate exists but does not
+  cost an attacker anything. This is stated in the threat model under T3.
+- The timing side-channel on `verify/start` (known bookings take longer than unknown ones)
+  is documented in the threat model but not mitigated. The residual risk is low because an
+  attacker who can measure the timing already holds a candidate reference code (~50 bits),
+  but it is a real side channel.
+
+### Payment provider seam (ADR-005)
+
+The pay route now calls a `PaymentProvider` interface rather than hardcoding `'simulated'`
+in SQL. The provider name is a query parameter, not a SQL literal.
+
+**What was verified:**
+
+| Control | How checked | Result |
+|---|---|---|
+| Provider name is parameterised ($2), not a literal | Pay route test 10: `expect(params).toContain("simulated")` | **PASS** |
+| Simulated provider idempotency | `tests/payments/simulated.test.ts`: 10 concurrent `authorise` calls → 1 `provider_reference` | **PASS** |
+| Provider resolved from env var | `lib/payments/resolve.ts`: `PAYMENT_PROVIDER` env var, default `"simulated"` | **PASS** — structural |
+| Unknown provider throws | Switch default in `resolve.ts` | **PASS** — structural |
+
 ---
 
 ## What this review changed

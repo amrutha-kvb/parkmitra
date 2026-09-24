@@ -58,6 +58,7 @@ export interface BookingRow {
   bay_label: string;
   address_line: string;
   arrived_at: string | null;
+  phone_verified: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ const BOOKING_BY_CODE_SQL = `
     upper(bk.window_at)::text   AS window_end,
     bk.amount_paise             AS amount_paise,
     bk.arrived_at::text         AS arrived_at,
+    bk.phone_verified           AS phone_verified,
     s.name                      AS spot_name,
     b.label                     AS bay_label,
     s.address_line              AS address_line

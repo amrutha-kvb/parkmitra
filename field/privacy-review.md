@@ -18,11 +18,22 @@ saying "we do not log personal data" is an intention.
 | `driver_name` | `bookings` | Optional, for the operator's convenience | **Yes** — and it is already nullable, never required by any form, and never displayed |
 | `reference_code` | `bookings` | The authorisation itself (ADR-002) | No — it replaces an account |
 | `session_id` | `search_events` | Distinguishes one visit's searches from another's | It is ephemeral and random per visit, not a user identifier |
+| `code_hash` | `phone_otp` | SHA-256 of the 6-digit OTP sent to the driver's phone | **No.** Needed to verify the code without storing it in cleartext. Derived PD: it confirms a specific phone was asked to verify. Contains no phone number itself |
+| `attempts` | `phone_otp` | How many wrong guesses have been made against this OTP | Behavioural data in context: records how many times a specific person tried to verify. Not PD alone, but linked to a booking via `booking_id` FK |
+| `phone_verified` | `bookings` | Whether the driver completed OTP verification | A boolean flag, not PD by itself, but it records that a specific phone number was successfully verified for a specific booking |
 
 **No IP address is stored against a person.** The rate limiter keeps IPs in
 `rate_limit_hits`, which is a separate table, joined to nothing, never linked to a booking,
 and swept hourly by `scripts/rate-limit-sweep.sh`. That separation is deliberate: an IP
 beside a booking would turn a throttling counter into a location history.
+
+**OTP records are personal data.** The `phone_otp` table contains `code_hash` (SHA-256 of
+the OTP — derived PD) and `attempts` (behavioural data linked to a booking via FK). The
+table contains NO phone number column — the phone lives on `bookings` only, and duplicating
+it would create a second PD surface serving no query. `phone_otp` rows are not swept or
+expired by any scheduled job. They accumulate one row per booking that ever requested an OTP.
+This is covered by the retention gap below — the same anonymisation sweep that nulls PD
+columns on old bookings should also delete the corresponding `phone_otp` rows.
 
 **No cookies, no analytics, no third-party scripts, no error tracker.** Verified:
 
@@ -73,8 +84,12 @@ the list is what actually answers the question.
 | Is it ever in a URL? | Read every route and link; lookup is by reference code only | **PASS** |
 | Is it sent to any third party? | Dependency list is Neon and Vercel only; no analytics | **PASS** |
 | Can a stranger enumerate bookings? | ~50-bit CSPRNG code; malformed and unknown return byte-identical 404s | **PASS** |
-| Does the schema mark what is personal? | `-- PD` comments on the three columns in `001_init.sql` | **PASS** |
+| Does the schema mark what is personal? | `-- PD` comments on the three columns in `001_init.sql`; `-- PD (derived)` on `code_hash` in `007_phone_verification.sql` | **PASS** |
 | Is `driver_name` ever required or shown? | Read the form and every render path | **PASS** — optional, unused |
+| Does `phone_otp` contain a phone number? | Read `007_phone_verification.sql` and `lib/otp.ts` | **PASS** — no phone column; keyed by `booking_id` only |
+| Can a verify endpoint be used as a phone oracle? | Route tests assert byte-identical responses for known/unknown bookings | **PASS** |
+| Is the OTP stored in cleartext? | `lib/otp.ts`: `createHash("sha256").update(code).digest("hex")` | **PASS** — SHA-256 hash only |
+| Are `phone_otp` rows swept? | Read `scripts/`, checked for cron/schedule | **FAIL** — no sweep exists. Covered by the retention gap above |
 
 ## Gaps, stated rather than quietly dropped
 
@@ -91,9 +106,11 @@ exists to prevent.
 **Why it is not fixed today:** deleting bookings would destroy the audit trail that the
 runbook depends on ("never delete a booking; set `status = 'cancelled'`"). The right fix is
 *anonymisation*, not deletion — null the three PD columns on bookings whose window ended
-more than N days ago, keeping the row, the price and the timing. That is a migration plus a
-scheduled job, and it needs a number for N that is a policy decision rather than an
-engineering one. Carried into the handover.
+more than N days ago, keeping the row, the price and the timing. The same sweep must also
+`DELETE FROM phone_otp WHERE booking_id IN (...)` for the anonymised bookings — the
+`code_hash` and `attempts` are derived PD and have no purpose after the booking is
+anonymised. That is a migration plus a scheduled job, and it needs a number for N that is a
+policy decision rather than an engineering one. Carried into the handover.
 
 ### There is no way for a person to ask what is held about them
 

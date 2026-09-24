@@ -67,7 +67,10 @@ interface BookingResponse {
 /** All states the page can occupy. */
 type PageStatus =
   | "loading"     // Fetching the booking
-  | "ready"       // Booking is pending — show payment form
+  | "verifying"   // Phone OTP step — enter the code
+  | "sending_otp" // POST verify/start in-flight
+  | "checking_otp" // POST verify/check in-flight
+  | "ready"       // Phone verified — show payment form
   | "processing"  // POST /pay in-flight
   | "expired"     // Booking is cancelled/expired — can't pay
   | "not_found"   // 404 from the API — unknown or malformed code
@@ -176,6 +179,9 @@ function PayPageInner() {
 
   const [status, setStatus] = useState<PageStatus>("loading");
   const [booking, setBooking] = useState<BookingResponse | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   // Track whether a redirect to /confirmed is already queued — prevents
   // double-navigation if the effect re-runs.
@@ -218,7 +224,19 @@ function PayPageInner() {
             router.replace(`/confirmed?ref=${encodeURIComponent(data.reference_code)}`);
           }
         } else if (data.status === "pending") {
-          setStatus("ready");
+          setStatus("sending_otp");
+          // Trigger OTP send
+          fetch(`/api/bookings/${encodeURIComponent(data.reference_code)}/verify/start`, {
+            method: "POST",
+          })
+            .then((otpRes) => otpRes.json())
+            .then((otpData) => {
+              if (otpData._dev_code) setDevCode(otpData._dev_code);
+              setStatus("verifying");
+            })
+            .catch(() => {
+              setStatus("verifying");
+            });
         } else {
           // cancelled / expired
           setStatus("expired");
@@ -232,6 +250,44 @@ function PayPageInner() {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  // ---------------------------------------------------------------------------
+  // OTP verify handler
+  // ---------------------------------------------------------------------------
+
+  async function handleVerify() {
+    if (!booking || otpCode.length !== 6) return;
+    setOtpError(null);
+    setStatus("checking_otp");
+
+    try {
+      const res = await fetch(
+        `/api/bookings/${encodeURIComponent(booking.reference_code)}/verify/check`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: otpCode }),
+        },
+      );
+
+      if (!res.ok) {
+        setOtpError("Something went wrong. Try again.");
+        setStatus("verifying");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.verified) {
+        setStatus("ready");
+      } else {
+        setOtpError("Wrong code. Check and try again.");
+        setStatus("verifying");
+      }
+    } catch {
+      setOtpError("Connection error. Try again.");
+      setStatus("verifying");
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Pay handler
@@ -281,9 +337,9 @@ function PayPageInner() {
   // Derived values
   // ---------------------------------------------------------------------------
 
-  const isLoading = status === "loading";
+  const isLoading = status === "loading" || status === "sending_otp";
   const isProcessing = status === "processing";
-  const isBusy = isLoading || isProcessing;
+  const isBusy = isLoading || isProcessing || status === "checking_otp";
 
   const amountDisplay = booking ? paiseToDisplay(booking.amount_paise) : "";
   const windowDisplay =
@@ -471,6 +527,84 @@ function PayPageInner() {
             Retry
           </button>
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          STATE: verifying / checking_otp — OTP entry
+      ══════════════════════════════════════════ */}
+      {(status === "verifying" || status === "checking_otp") && booking && (
+        <>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontSize: "var(--text-lg)",
+                fontWeight: "var(--weight-medium)",
+                color: "var(--ink-900)",
+              }}
+            >
+              Verify your phone
+            </div>
+            <div
+              style={{
+                color: "var(--ink-700)",
+                fontSize: "var(--text-sm)",
+                marginTop: "var(--space-1)",
+              }}
+            >
+              Enter the 6-digit code sent to your phone.
+            </div>
+          </div>
+
+          {devCode && (
+            <div
+              style={{
+                textAlign: "center",
+                fontSize: "var(--text-sm)",
+                color: "var(--ink-500)",
+                fontFamily: "monospace",
+              }}
+            >
+              Dev code: {devCode}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-2)" }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              className="field__input"
+              placeholder="000000"
+              value={otpCode}
+              aria-label="Verification code"
+              style={{ textAlign: "center", fontSize: "var(--text-xl)", letterSpacing: "0.3em", maxWidth: 200 }}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setOtpCode(v);
+                setOtpError(null);
+              }}
+            />
+            {otpError && (
+              <div role="alert" style={{ color: "var(--stop-700)", fontSize: "var(--text-sm)" }}>
+                {otpError}
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1 }} aria-hidden="true" />
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+            disabled={otpCode.length !== 6 || status === "checking_otp"}
+            aria-disabled={otpCode.length !== 6 || status === "checking_otp"}
+            onClick={handleVerify}
+          >
+            {status === "checking_otp" ? "Verifying…" : "Verify"}
+          </button>
+        </>
       )}
 
       {/* ══════════════════════════════════════════

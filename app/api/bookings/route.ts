@@ -176,32 +176,38 @@ export function isWithinOpeningHours(
   // that represents that time of day in the *local* wall-clock sense implied
   // by the ISO string's UTC offset. We use the ISO string itself to find
   // the date fragment and splice in the boundary time.
-  function boundaryDate(ref: Date, timeStr: string): Date {
-    // Extract the UTC offset from the original ISO string, e.g. "+05:30".
-    // If the string has no offset (ends in Z), treat it as "+00:00".
-    const offsetMatch = /([+-]\d{2}:\d{2})$/.exec(startIso);
+  function boundaryDate(ref: Date, timeStr: string, isoSource: string): Date {
+    // Extract the UTC offset from the ISO string, e.g. "+05:30".
+    const offsetMatch = /([+-]\d{2}:\d{2})$/.exec(isoSource);
     const offset = offsetMatch ? offsetMatch[1]! : "+00:00";
 
-    // Format the ref date as YYYY-MM-DD in UTC (pg time columns have no tz).
-    // We want the *local* date for the given ref time: convert to local first.
+    // Parse the offset into milliseconds so we can compute the local
+    // calendar date. getUTC*() gives the UTC date, which may differ
+    // from the local date when the offset crosses midnight.
+    const sign = offset[0] === "-" ? -1 : 1;
+    const [oh, om] = offset.slice(1).split(":").map(Number) as [number, number];
+    const offsetMs = sign * (oh * 60 + om) * 60_000;
+
+    // Shift UTC instant to local wall-clock, then read the date parts.
+    const local = new Date(ref.getTime() + offsetMs);
+    const yyyy = local.getUTCFullYear();
+    const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(local.getUTCDate()).padStart(2, "0");
+
     const [h, m, s] = timeStr.split(":").map(Number) as [
       number,
       number,
       number,
     ];
-    // Build an ISO string like "2026-10-01T07:00:00+05:30" then parse it.
-    const yyyy = ref.getUTCFullYear();
-    const mm = String(ref.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(ref.getUTCDate()).padStart(2, "0");
     const hh = String(h).padStart(2, "0");
     const mi = String(m).padStart(2, "0");
     const ss = String(s ?? 0).padStart(2, "0");
     return new Date(`${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}${offset}`);
   }
 
-  const openOnStartDay = boundaryDate(startDate, opensAt);
-  const closeOnStartDay = boundaryDate(startDate, closesAt);
-  const closeOnEndDay = boundaryDate(endDate, closesAt);
+  const openOnStartDay = boundaryDate(startDate, opensAt, startIso);
+  const closeOnStartDay = boundaryDate(startDate, closesAt, startIso);
+  const closeOnEndDay = boundaryDate(endDate, closesAt, endIso);
 
   // The booking start must be >= opens_at of the start day.
   if (startDate.getTime() < openOnStartDay.getTime()) return false;
