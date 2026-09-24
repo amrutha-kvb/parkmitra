@@ -91,7 +91,14 @@ const SpotMap = nextDynamic(() => import("./SpotMap"), {
 ───────────────────────────────────────────── */
 
 /** The four page-level states S2 can be in. */
-type PageStatus = "loading" | "empty" | "error" | "results";
+type PageStatus =
+  | "loading"
+  | "empty"
+  | "error"
+  | "results"
+  /** The slug in the URL is not an area we cover. Distinct from "empty",
+      which means a real area with nothing free right now. */
+  | "unknown_area";
 
 /** API response shape for GET /api/availability. */
 interface AvailabilityResponse {
@@ -388,13 +395,34 @@ function SearchPageInner() {
 
     const params = new URLSearchParams({ area, start, end });
 
-    fetch(`/api/availability?${params.toString()}`)
-      .then((res) => {
+    // Availability returns 200 with an empty list for an area that does not
+    // exist, which is indistinguishable from a real area with nothing free. So
+    // the known areas are fetched alongside it: without this the screen said
+    // "No spots available in Nonsense", inventing a place and implying we cover
+    // it. For a real neighbourhood we do not serve yet — "Banjara Hills" — that
+    // is actively misleading rather than merely odd.
+    Promise.all([
+      fetch(`/api/availability?${params.toString()}`).then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<AvailabilityResponse>;
-      })
-      .then((data) => {
+      }),
+      fetch("/api/areas")
+        .then((r) => (r.ok ? r.json() : { areas: [] }))
+        .catch(() => ({ areas: [] as { slug: string }[] })),
+    ])
+      .then(([data, areasData]) => {
         if (coldStartTimer.current) clearTimeout(coldStartTimer.current);
+
+        const known: { slug: string }[] = areasData?.areas ?? [];
+        // Only claim the area is unknown when the list actually loaded. If that
+        // request failed we fall back to the old behaviour rather than telling
+        // someone their real area does not exist.
+        if (known.length > 0 && !known.some((a) => a.slug === area)) {
+          setSpots([]);
+          setStatus("unknown_area");
+          return;
+        }
+
         setSpots(data.spots);
         setStatus(data.spots.length === 0 ? "empty" : "results");
       })
@@ -453,9 +481,11 @@ function SearchPageInner() {
       >
         {status === "results"
           ? `${spots.length} spot${spots.length !== 1 ? "s" : ""} found in ${areaDisplay}`
-          : status === "empty"
-            ? `No spots available in ${areaDisplay} for that window`
-            : ""}
+          : status === "unknown_area"
+            ? "We do not cover that area yet"
+            : status === "empty"
+              ? `No spots available in ${areaDisplay} for that window`
+              : ""}
       </div>
 
       {/* ══════════════════════════════════════════
@@ -515,6 +545,48 @@ function SearchPageInner() {
       {/* ══════════════════════════════════════════
           STATE 2 — Empty (no spots, not an error)
       ══════════════════════════════════════════ */}
+      {/*
+        Unknown area. Distinct from "empty", which means a real area with nothing
+        free right now. Saying "No spots available in Banjara Hills" about a
+        place we do not serve implies we serve it.
+      */}
+      {status === "unknown_area" && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            padding: "var(--space-8) var(--space-4)",
+            textAlign: "center",
+            color: "var(--ink-700)",
+            flex: 1,
+            justifyContent: "center",
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: "var(--text-xl)" }}>
+            🗺
+          </span>
+          <strong
+            style={{
+              color: "var(--ink-900)",
+              fontWeight: "var(--weight-medium)",
+              fontSize: "var(--text-base)",
+              maxWidth: "30ch",
+            }}
+          >
+            We do not cover that area yet
+          </strong>
+          <p style={{ fontSize: "var(--text-sm)", margin: 0, maxWidth: "34ch" }}>
+            parkmitra is live in seven Hyderabad areas. Pick one from the home
+            screen to see what is free.
+          </p>
+          <a href="/" className="btn btn-primary" style={{ width: "auto", paddingInline: "var(--space-6)" }}>
+            Choose an area
+          </a>
+        </div>
+      )}
+
       {status === "empty" && (
         <div
           style={{

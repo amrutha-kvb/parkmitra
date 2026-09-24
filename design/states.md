@@ -31,7 +31,8 @@ broken page rather than an empty one.
 | State | Reached by | What the user sees |
 |---|---|---|
 | **Loading** | Availability query in flight | Skeleton result rows |
-| **Empty** | Query succeeds, no bay is free in that window. **The most common non-happy path in the product** | "No bays free in this window", with the window restated and a route back to change it |
+| **Empty** | Query succeeds, no bay is free in that window. **The most common non-happy path in the product** | "Nothing unbooked in {area} for that window", with the window restated and a route back to change it |
+| **Unknown area** | The slug in the URL is not an area we cover. Availability returns 200 with an empty list, so this is indistinguishable from "empty" by response alone — the known areas are fetched alongside it | "We do not cover that area yet". Saying "No spots available in Banjara Hills" about a place we do not serve implies we serve it |
 | **Error** | Query fails | Message plus retry. The map degrades separately: tile failures show a degraded notice while markers and the list keep working |
 | **Permission-denied** | **Cannot occur.** Searching requires no authorisation | — |
 
@@ -40,7 +41,7 @@ broken page rather than an empty one.
 | State | Reached by | What the user sees |
 |---|---|---|
 | **Loading** | Submitting the booking | Button enters a pending state; the form is locked so a double-tap cannot double-book |
-| **Empty** | **Cannot occur.** The screen is reached with a chosen bay and window; there is no list to be empty | — |
+| **Empty** | **It can occur, and this register was wrong.** Anyone can open `/book` directly. The bay fetch returned early on missing parameters, so the screen rendered a booking form with no spot, no bay, no price, and a "Book this bay" button with nothing to book | "No bay chosen yet", with a route back to search |
 | **Error** | Validation failure, or **409 when the bay was taken between choosing and confirming** | Field-level messages for validation. The 409 is its own case: "Someone booked that bay first" with a route back to results — this is the exclusion constraint doing its job and the user must not see a generic failure |
 | **Permission-denied** | Reached with a bay that no longer exists or is not bookable | Treated as "not available", never as a permissions message, so nothing is leaked about what exists |
 
@@ -72,6 +73,22 @@ broken page rather than an empty one.
 | **Permission-denied** | An unknown or malformed code | **Byte-identical responses**, verified by an e2e test. This is the whole enumeration defence: a distinguishable "malformed" and "not found" would let an attacker learn the code format is right |
 
 ---
+
+## Two corrections to this register
+
+Written after auditing every screen **by opening its URL directly**, rather than by walking
+the happy path. The suite only ever arrived at these screens by clicking, so none of these
+states was exercised.
+
+1. **S3's empty state was declared impossible and was not.** `/book` with no parameters
+   rendered a booking form for nothing. A "Book this bay" button with no bay is worse than
+   an error page, because it looks like it might work.
+2. **S2 needed a state this register did not have.** An area we do not cover produced
+   "No spots available in Banjara Hills" — inventing coverage of a real neighbourhood.
+
+Both are now implemented and tested. The lesson is the same one twice: **"cannot occur" is a
+claim about reachability, and reachability is exactly what walking the happy path never
+tests.**
 
 ## Reachability, which the four states do not cover
 
