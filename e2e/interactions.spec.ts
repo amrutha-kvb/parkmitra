@@ -14,6 +14,7 @@ test.describe("mobile", () => {
     const small = await page.locator("button, a").evaluateAll((els) =>
       els
         .filter((e) => (e as HTMLElement).offsetParent !== null)
+        .filter((e) => e.id !== "next-logo" && !e.closest("nextjs-portal"))
         .map((e) => {
           const r = e.getBoundingClientRect();
           return { t: (e.textContent || "").trim().slice(0, 30), h: Math.round(r.height) };
@@ -50,6 +51,12 @@ test.describe("mobile", () => {
         els
           .filter((e) => (e as HTMLElement).offsetParent !== null)
           .filter((e) => !e.closest(".leaflet-container"))
+          // Next.js injects its own dev-mode indicator (#next-logo, inside a
+          // nextjs-portal) which is 32px and does not exist in a production
+          // build. CI runs `npm run dev` while this was written against
+          // `next start`, so it passed locally and failed in CI — an
+          // environment difference, not a product defect.
+          .filter((e) => e.id !== "next-logo" && !e.closest("nextjs-portal"))
           .map((e) => {
             const r = e.getBoundingClientRect();
             return { t: (e.textContent || "").trim().slice(0, 30), h: Math.round(r.height) };
