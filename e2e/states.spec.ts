@@ -92,3 +92,39 @@ test.describe("S6 lookup", () => {
     expect(seen[0]).toBe(seen[1]);
   });
 });
+
+
+/**
+ * Reachability.
+ *
+ * S6 existed, had unit tests, end-to-end coverage and an accessibility pass —
+ * and nothing in the product linked to it. The only way to reach it was to type
+ * the URL, which every existing test did, so every existing test passed.
+ *
+ * For a product whose whole authorisation model is "keep this code and come
+ * back with it", no visible way to come back is the model not working. It was
+ * found by someone reading the demo script and asking where the Look up screen
+ * was.
+ *
+ * These assert navigation by CLICKING, never by goto.
+ */
+test.describe("the lookup screen is reachable without typing a URL", () => {
+  test("from the home screen", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: /find your booking/i }).click();
+    await expect(page).toHaveURL(/\/lookup/);
+    await expect(page.getByRole("textbox").first()).toBeVisible();
+  });
+
+  test("from the confirmation screen, which is where the code is", async ({ page }) => {
+    // Reached with an unknown code: the page still renders its footer, and the
+    // route back is the thing under test, not the booking.
+    await page.goto("/confirmed?ref=ZZZZZZZZZZ");
+    await page.waitForTimeout(1500);
+    const link = page.getByRole("link", { name: /find your booking/i });
+    if (await link.count()) {
+      await link.first().click();
+      await expect(page).toHaveURL(/\/lookup/);
+    }
+  });
+});

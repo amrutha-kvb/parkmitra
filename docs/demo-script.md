@@ -40,7 +40,8 @@ correct ₹50."
 
 ## 3:30-4:30 · The reference code is the whole authorisation
 
-1. Go to **Look up**, paste the code — the booking appears.
+1. On the confirmation screen, click **"Find your booking"** at the bottom. Paste the code.
+   The booking appears.
 2. Now type a wrong code of the right shape.
 3. Now type a malformed one.
 
@@ -130,6 +131,7 @@ Then open `docs/runbook.md`:
 |---|---|
 | First load slow | "Free-tier database waking up — the interface says so rather than hiding it behind a spinner." |
 | Map tiles blank | "OpenStreetMap. The spots are listed below the map too, deliberately — the map is never the only route to a booking." |
+| The lookup link is missing | It is at the foot of the confirmation screen and on the home page. If neither is there you are on an old deployment. |
 | A booking 409s | **This is the best thing that can happen.** "That bay was taken between choosing and confirming. That is the exclusion constraint doing exactly its job, live." |
 | Health returns 503 | Open the runbook at "booking_guarantee: false". Two seconds to restore, and it is written down. |
 
