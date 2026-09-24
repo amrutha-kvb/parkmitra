@@ -170,6 +170,27 @@ describe("happy path → 200", () => {
     delete process.env["VERCEL_GIT_COMMIT_SHA"];
   });
 
+  // Regression guard. `??` does not catch an empty string, and a deployment that
+  // is not git-connected sets this variable to exactly that — so production
+  // reported `"commit": ""`, which reads as a value rather than as absence.
+  it("6b-ii. commit falls back to 'unknown' when the env var is an EMPTY STRING", async () => {
+    process.env["VERCEL_GIT_COMMIT_SHA"] = "";
+    setupHealthy();
+    const res = await GET();
+    const body = await res.json();
+    expect(body.commit).toBe("unknown");
+    delete process.env["VERCEL_GIT_COMMIT_SHA"];
+  });
+
+  it("6b-iii. commit falls back to 'unknown' when the env var is whitespace", async () => {
+    process.env["VERCEL_GIT_COMMIT_SHA"] = "   ";
+    setupHealthy();
+    const res = await GET();
+    const body = await res.json();
+    expect(body.commit).toBe("unknown");
+    delete process.env["VERCEL_GIT_COMMIT_SHA"];
+  });
+
   it("6c. commit falls back to 'unknown' off Vercel", async () => {
     const saved = process.env["VERCEL_GIT_COMMIT_SHA"];
     delete process.env["VERCEL_GIT_COMMIT_SHA"];
