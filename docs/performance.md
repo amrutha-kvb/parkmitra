@@ -1,26 +1,47 @@
 # Performance, measured
 
-Against the budgets in [`design/nfr.md`](../design/nfr.md). Measured 2026-09-23 against the
-live deployment at `https://parkmitra-nu.vercel.app`, release v1.0.0.
+Against the budgets in [`design/nfr.md`](../design/nfr.md). Server-side figures measured
+2026-09-25 against the live deployment; the end-to-end figures below are from 2026-09-23.
 
-## What was measured, and what it includes
+## Measured server-side, and now proven (2026-09-25)
 
-20 warm requests per endpoint from Hyderabad, after three discarded warm-up calls.
+`design/nfr.md` states its budgets as *"measured server-side, p95, warm"*. Until today
+nothing measured server-side, so every verdict below had to be recorded as **unproven** —
+from Hyderabad the wall-clock figure is dominated by the round trip to the function region,
+and subtracting an estimate is not a measurement.
 
-**These are end-to-end numbers from a real user's location, not server-side numbers.** The
-NFR budgets were written as "measured server-side, p95, warm", and I cannot isolate server
-compute from a client without server-side instrumentation. Reporting the client figure
-against a server budget would understate the product; reporting it *as* the server figure
-would be false. So both columns are below, and the verdict column judges the thing the
-budget actually asked about.
+`/api/areas` and `/api/availability` now emit a standard `Server-Timing` header carrying the
+handler's own duration. Measured on the live deployment, 25 warm requests each:
 
-| Endpoint | Budget (server) | TTFB p50 | TTFB p95 | Wall p95 | Verdict |
+| Endpoint | Budget | p50 | p95 | max | Verdict |
 |---|---|---|---|---|---|
-| `GET /api/areas` | 100 ms | 250 ms | 331 ms | 437 ms | see below |
-| `GET /api/availability` | 400 ms | 245 ms | **450 ms** | 508 ms | see below |
-| `GET /api/health` | — | 255 ms | 485 ms | 540 ms | — |
+| `GET /api/areas` | 100 ms | **2.7 ms** | **7.1 ms** | 83.9 ms | **PASS** — 14× headroom |
+| `GET /api/availability` | 400 ms | **2.6 ms** | **24.2 ms** | 65.5 ms | **PASS** — 16× headroom |
 
-## The finding: every request crosses an ocean
+```console
+$ curl -sI https://…/api/availability?area=gachibowli&… | grep -i server-timing
+server-timing: handler;dur=2.6
+```
+
+**Both budgets are met with an order of magnitude to spare**, and the figure is now readable
+by anyone with curl or browser devtools rather than being an estimate in a document.
+
+### The same measurement, taken wrongly, says the opposite
+
+Run against a local server talking to the same hosted database, the identical instrumentation
+reports:
+
+| Endpoint | p50 | p95 |
+|---|---|---|
+| `GET /api/areas` | 248.8 ms | 347.0 ms |
+| `GET /api/availability` | 246.5 ms | 291.9 ms |
+
+That reads as a **failure** on the 100 ms budget. It is not a different product — it is the
+handler waiting on a database in `us-east-1` from a laptop in Hyderabad. Recorded because it
+is the trap: server-side timing is only meaningful when the server is where the server
+actually is. I nearly wrote the first set of numbers up as the verdict.
+
+## The finding this confirms: every request crosses an ocean
 
 ```console
 $ curl -sI https://parkmitra-nu.vercel.app/api/areas | grep x-vercel-id
@@ -40,11 +61,16 @@ static rows and `/api/availability` runs the product's real query, and they are 
 of each other. When two endpoints with a 10x difference in work take the same time, the
 time is not being spent on work.
 
-**This means the budgets are probably being met and I cannot prove it.** Subtract the
-round trip and every figure lands inside its budget with room to spare — but "probably,
-if you subtract a number I estimated" is not a measurement, so the verdict column says
-*see below* rather than **PASS**. I would rather leave this open than award a pass I did
-not earn.
+**This was written before the budgets could be proven, and it said so.** At the time the
+honest position was "probably being met, and I cannot demonstrate it" — subtracting an
+estimated round trip is not a measurement, so the verdict column read *see below* rather
+than **PASS**.
+
+The `Server-Timing` measurement at the top of this document settles it: **2.7 ms and 2.6 ms
+p50 server-side, against budgets of 100 ms and 400 ms.** The hypothesis in this section — that
+two endpoints doing a 10× difference in work take the same wall-clock time because the time
+is not being spent on work — turned out to be exactly right, and is now evidence rather than
+inference.
 
 ### The fix, which is configuration and not code
 
