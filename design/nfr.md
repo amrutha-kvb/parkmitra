@@ -20,6 +20,18 @@ suspends an idle database and the first query after suspension pays several seco
 is a property of the free tier, not of the query, and hiding it inside a p95 would be
 dishonest in both directions. Phase 7 reports warm p95 *and* a measured cold-start number.
 
+### Measured, 2026-09-25
+
+Server-side, via `Server-Timing`, on the live deployment. 25 warm requests each.
+
+| Path | Budget | p95 measured | |
+|---|---|---|---|
+| `GET /api/areas` | 100 ms | **7.1 ms** | PASS |
+| `GET /api/availability` | 400 ms | **24.2 ms** | PASS |
+
+Full method, the end-to-end figures, and the trap that nearly produced the opposite verdict
+are in [`docs/performance.md`](../docs/performance.md).
+
 ## Cost budget
 
 Hard constraint: **₹0 / month.** Free tiers only. Anything requiring a card is out of scope

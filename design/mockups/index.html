@@ -296,6 +296,29 @@ actually help rather than an apology.</p>
 </div>
 
 <!-- ══════════════════ S3 ══════════════════ -->
+  <h3>S2 — unknown area: a place we do not cover</h3>
+  <p class="note">
+    Added 2026-09-25. Availability returns <code>200</code> with an empty list for an area
+    that does not exist, so it is indistinguishable from a real area with nothing free —
+    the known areas are fetched alongside it. Without this the screen said "No spots
+    available in Banjara Hills", inventing coverage of a real Hyderabad neighbourhood.
+  </p>
+  <div class="screen">
+    <div class="panel" role="status">
+      <strong>🗺 We do not cover that area yet</strong>
+      <p>parkmitra is live in seven Hyderabad areas. Pick one from the home screen to see
+         what is free.</p>
+      <p><a href="#">Choose an area</a></p>
+    </div>
+  </div>
+
+  <h3>S2 — permission denied: cannot occur</h3>
+  <p class="note">
+    Searching requires no identity (ADR-002). There is nothing to be denied. Registered in
+    <code>design/states.md</code> rather than mocked, because a mockup of an unreachable
+    state is dead design that makes the real gaps harder to see.
+  </p>
+
 <h2>S3 — Book</h2>
 <div class="row">
 
@@ -359,6 +382,37 @@ actually help rather than an apology.</p>
 </div>
 
 <!-- ══════════════════ S4 ══════════════════ -->
+  <h3>S3 — empty: reached without a chosen bay</h3>
+  <p class="note">
+    Added 2026-09-25, and this register previously said it <em>could not occur</em>. It can:
+    anyone may open <code>/book</code> directly. The bay fetch returned early on missing
+    parameters, so the screen rendered a booking form with no spot, no bay, no price, and a
+    "Book this bay" button with nothing to book. A button that looks like it might work is
+    worse than an error page.
+  </p>
+  <div class="screen">
+    <div class="panel">
+      <strong>No bay chosen yet</strong>
+      <p>This page books a specific bay for a specific window, so it needs you to pick one
+         first.</p>
+      <p><a href="#">Start a search</a></p>
+    </div>
+  </div>
+
+  <h3>S3 — permission denied: the bay is no longer bookable</h3>
+  <p class="note">
+    Reached with a bay that has been taken or withdrawn between choosing and confirming.
+    Deliberately presented as "not available" rather than as a permissions message, so
+    nothing leaks about what exists.
+  </p>
+  <div class="screen">
+    <div class="panel" role="alert">
+      <strong>Someone booked that bay first</strong>
+      <p>That is the database refusing a double booking, working exactly as intended.</p>
+      <p><a href="#">Back to results</a></p>
+    </div>
+  </div>
+
 <h2>S4 — Pay (simulated)</h2>
 <p class="note">The demo banner is standing and not dismissible on every state of this
 screen. The product must never imply it took money.</p>
@@ -413,6 +467,25 @@ screen. The product must never imply it took money.</p>
 </div>
 
 <!-- ══════════════════ S5 ══════════════════ -->
+  <h3>S4 — permission denied: the code does not match a payable booking</h3>
+  <p class="note">
+    Byte-identical to an unknown code, by design — a distinguishable response would let
+    someone learn the code format is right and start guessing (threat model T1).
+  </p>
+  <div class="screen">
+    <div class="panel" role="alert">
+      <strong>🔎 No booking with that code</strong>
+      <p>Check the code and try again.</p>
+      <p><a href="#">Try another code</a></p>
+    </div>
+  </div>
+
+  <h3>S4 — empty: cannot occur</h3>
+  <p class="note">
+    The screen is always reached with exactly one booking to pay for. Registered rather than
+    mocked.
+  </p>
+
 <h2>S5 — Confirmed</h2>
 <div class="row">
 
@@ -466,6 +539,11 @@ screen. The product must never imply it took money.</p>
 </div>
 
 <!-- ══════════════════ S6 ══════════════════ -->
+  <h3>S5 — empty: cannot occur</h3>
+  <p class="note">
+    There is always exactly one booking to confirm. Registered rather than mocked.
+  </p>
+
 <h2>S6 — Lookup</h2>
 <div class="row">
 
@@ -510,5 +588,19 @@ screen. The product must never imply it took money.</p>
 </div>
 
 </div>
+
+  <h3>S6 — permission denied: unknown or malformed code</h3>
+  <p class="note">
+    The whole enumeration defence. An unknown code and a malformed one produce
+    <strong>byte-identical</strong> responses, asserted by an end-to-end test. If they
+    differed, an attacker would learn the format was right.
+  </p>
+  <div class="screen">
+    <div class="panel" role="alert">
+      <strong>⚠ No booking with that code</strong>
+      <p>The code is on your confirmation.</p>
+    </div>
+  </div>
+
 </body>
 </html>
