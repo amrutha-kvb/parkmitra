@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchAvailability } from "../../../lib/availability";
 import pool from "../../../lib/db";
 import { rateLimitGuard } from "../../../lib/rate-limit-guard";
+import { serverTimingHeader } from "../../../lib/server-timing";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the OpenAPI contract exactly (ARCH-002).
@@ -70,6 +71,9 @@ export async function GET(
   // another (see lib/rate-limit.ts SCOPES).
   const limited = await rateLimitGuard<AvailabilityResponse | ErrorResponse>(request, "search");
   if (limited) return limited;
+
+  // Handler clock for Server-Timing (design/nfr.md budgets are server-side).
+  const t0 = performance.now();
 
   const { searchParams } = request.nextUrl;
 
@@ -141,7 +145,10 @@ export async function GET(
     spots,
   };
 
-  return NextResponse.json<AvailabilityResponse>(body, { status: 200 });
+  return NextResponse.json<AvailabilityResponse>(body, {
+    status: 200,
+    headers: { "Server-Timing": serverTimingHeader(performance.now() - t0) },
+  });
 }
 
 // ---------------------------------------------------------------------------
